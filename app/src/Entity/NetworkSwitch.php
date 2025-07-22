@@ -2,14 +2,14 @@
 
 namespace App\Entity;
 
-use App\Repository\SwitchRepository;
+use App\Repository\NetworkSwitchRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: SwitchRepository::class)]
-#[ORM\Table(name: '`switch`')]
-class Switch
+#[ORM\Entity(repositoryClass: NetworkSwitchRepository::class)]
+#[ORM\Table(name: '`network_switch`')]
+class NetworkSwitch
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -32,7 +32,7 @@ class Switch
     #[ORM\Column]
     private ?int $nbprises = null;
 
-    #[ORM\OneToMany(mappedBy: 'switch', targetEntity: Position::class)]
+    #[ORM\OneToMany(mappedBy: 'networkSwitch', targetEntity: Position::class)]
     private Collection $positions;
 
     #[ORM\OneToMany(mappedBy: 'switch', targetEntity: Syslog::class)]
@@ -121,7 +121,7 @@ class Switch
     {
         if (!$this->positions->contains($position)) {
             $this->positions->add($position);
-            $position->setSwitch($this);
+            $position->setNetworkSwitch($this);
         }
 
         return $this;
@@ -131,8 +131,8 @@ class Switch
     {
         if ($this->positions->removeElement($position)) {
             // set the owning side to null (unless already changed)
-            if ($position->getSwitch() === $this) {
-                $position->setSwitch(null);
+            if ($position->getNetworkSwitch() === $this) {
+                $position->setNetworkSwitch(null);
             }
         }
 
@@ -166,6 +166,6 @@ class Switch
             }
         }
 
-        return $this;
+        return $this.
     }
 }

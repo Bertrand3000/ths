@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\NetworkSwitch;
 use App\Repository\PositionRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -25,7 +26,7 @@ class Position
 
     #[ORM\ManyToOne(inversedBy: 'positions')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?Switch $switch = null;
+    private ?NetworkSwitch $networkSwitch = null;
 
     #[ORM\Column]
     private ?int $coordx = null;
@@ -88,14 +89,14 @@ class Position
         return $this;
     }
 
-    public function getSwitch(): ?Switch
+    public function getNetworkSwitch(): ?NetworkSwitch
     {
-        return $this->switch;
+        return $this->networkSwitch;
     }
 
-    public function setSwitch(?Switch $switch): static
+    public function setNetworkSwitch(?NetworkSwitch $networkSwitch): static
     {
-        $this->switch = $switch;
+        $this->networkSwitch = $networkSwitch;
 
         return $this;
     }

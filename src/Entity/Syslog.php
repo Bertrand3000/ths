@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\SyslogRepository;
 use Doctrine\DBAL\Types\Types;
+use App\Entity\NetworkSwitch;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: SyslogRepository::class)]
@@ -16,7 +17,7 @@ class Syslog
 
     #[ORM\ManyToOne(inversedBy: 'syslogs')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?Switch $switch = null;
+    private ?NetworkSwitch $switch = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $timestamp = null;
@@ -29,12 +30,12 @@ class Syslog
         return $this->id;
     }
 
-    public function getSwitch(): ?Switch
+    public function getSwitch(): ?NetworkSwitch
     {
         return $this->switch;
     }
 
-    public function setSwitch(?Switch $switch): static
+    public function setSwitch(?NetworkSwitch $switch): static
     {
         $this->switch = $switch;
 

@@ -3,28 +3,28 @@
 namespace App\Repository;
 
 use App\Entity\Etage;
-use App\Entity\Switch;
+use App\Entity\NetworkSwitch;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<Switch>
+ * @extends ServiceEntityRepository<NetworkSwitch>
  *
- * @method Switch|null find($id, $lockMode = null, $lockVersion = null)
- * @method Switch|null findOneBy(array $criteria, array $orderBy = null)
- * @method Switch[]    findAll()
- * @method Switch[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ * @method NetworkSwitch|null find($id, $lockMode = null, $lockVersion = null)
+ * @method NetworkSwitch|null findOneBy(array $criteria, array $orderBy = null)
+ * @method NetworkSwitch[]    findAll()
+ * @method NetworkSwitch[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class SwitchRepository extends ServiceEntityRepository
+class NetworkSwitchRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, Switch::class);
+        parent::__construct($registry, NetworkSwitch::class);
     }
 
     /**
      * @param Etage $etage
-     * @return Switch[]
+     * @return NetworkSwitch[]
      */
     public function findByEtage(Etage $etage): array
     {
@@ -38,9 +38,9 @@ class SwitchRepository extends ServiceEntityRepository
 
     /**
      * @param string $name
-     * @return Switch|null
+     * @return NetworkSwitch|null
      */
-    public function findByName(string $name): ?Switch
+    public function findByName(string $name): ?NetworkSwitch
     {
         return $this->createQueryBuilder('s')
             ->andWhere('s.nom = :name')
