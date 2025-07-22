@@ -3,7 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Syslog;
-use App\Entity\Switch;
+use App\Entity\NetworkSwitch;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -35,10 +35,10 @@ class SyslogRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param Switch $switch
+     * @param NetworkSwitch $switch
      * @return Syslog[]
      */
-    public function findBySwitch(Switch $switch): array
+    public function findBySwitch(NetworkSwitch $switch): array
     {
         return $this->createQueryBuilder('s')
             ->andWhere('s.switch = :switch')

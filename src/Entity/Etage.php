@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\EtageRepository;
 use Doctrine\Common\Collections\ArrayCollection;
+use App\Entity\NetworkSwitch;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -34,7 +35,7 @@ class Etage
     #[ORM\OneToMany(mappedBy: 'etage', targetEntity: Service::class)]
     private Collection $services;
 
-    #[ORM\OneToMany(mappedBy: 'etage', targetEntity: Switch::class)]
+    #[ORM\OneToMany(mappedBy: 'etage', targetEntity: NetworkSwitch::class)]
     private Collection $switches;
 
     #[ORM\OneToMany(mappedBy: 'etage', targetEntity: Position::class)]
@@ -143,14 +144,14 @@ class Etage
     }
 
     /**
-     * @return Collection<int, Switch>
+     * @return Collection<int, NetworkSwitch>
      */
     public function getSwitches(): Collection
     {
         return $this->switches;
     }
 
-    public function addSwitch(Switch $switch): static
+    public function addSwitch(NetworkSwitch $switch): static
     {
         if (!$this->switches->contains($switch)) {
             $this->switches->add($switch);
@@ -160,7 +161,7 @@ class Etage
         return $this;
     }
 
-    public function removeSwitch(Switch $switch): static
+    public function removeSwitch(NetworkSwitch $switch): static
     {
         if ($this->switches->removeElement($switch)) {
             // set the owning side to null (unless already changed)
