@@ -166,6 +166,6 @@ class NetworkSwitch
             }
         }
 
-        return $this.
+        return $this;
     }
 }
