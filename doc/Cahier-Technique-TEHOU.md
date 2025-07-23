@@ -142,7 +142,7 @@ src/Controlleur/
 #### 4.1.2 Services métier
 ```
 src/Service/
-├── ArchitectureService.php             # Gestion de l'architecture fixe
+├── ArchitectureService.php             # Gestion de l'architecture fixe (CRUD complet)
 ├── StatsService.php                    # Calculs statistiques
 ├── PositionService.php                 # Lecture et actualisation des positions
 └── SyslogService.php                   # Parseur syslog
