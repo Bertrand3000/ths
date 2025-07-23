@@ -24,23 +24,11 @@ class AgentPositionRepository extends ServiceEntityRepository
     /**
      * @return AgentPosition[]
      */
-    public function findCurrentPositions(): array
-    {
-        return $this->createQueryBuilder('ap')
-            ->andWhere('ap.dateactualisation > :date')
-            ->setParameter('date', new \DateTime('-15 minutes'))
-            ->getQuery()
-            ->getResult();
-    }
-
-    /**
-     * @return AgentPosition[]
-     */
     public function findExpiredPositions(): array
     {
         return $this->createQueryBuilder('ap')
-            ->andWhere('ap.dateactualisation < :date')
-            ->setParameter('date', new \DateTime('-15 minutes'))
+            ->andWhere('ap.dateexpiration < :date')
+            ->setParameter('date', new \DateTime())
             ->getQuery()
             ->getResult();
     }

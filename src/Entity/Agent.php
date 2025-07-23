@@ -33,9 +33,13 @@ class Agent
     #[ORM\OneToMany(mappedBy: 'agent', targetEntity: AgentHistoriqueConnexion::class)]
     private Collection $agentHistoriqueConnexions;
 
+    #[ORM\OneToMany(mappedBy: 'agent', targetEntity: AgentConnexion::class)]
+    private Collection $agentConnexions;
+
     public function __construct()
     {
         $this->agentHistoriqueConnexions = new ArrayCollection();
+        $this->agentConnexions = new ArrayCollection();
     }
 
     public function getNumagent(): ?string
@@ -139,6 +143,36 @@ class Agent
             // set the owning side to null (unless already changed)
             if ($agentHistoriqueConnexion->getAgent() === $this) {
                 $agentHistoriqueConnexion->setAgent(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, AgentConnexion>
+     */
+    public function getAgentConnexions(): Collection
+    {
+        return $this->agentConnexions;
+    }
+
+    public function addAgentConnexion(AgentConnexion $agentConnexion): static
+    {
+        if (!$this->agentConnexions->contains($agentConnexion)) {
+            $this->agentConnexions->add($agentConnexion);
+            $agentConnexion->setAgent($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAgentConnexion(AgentConnexion $agentConnexion): static
+    {
+        if ($this->agentConnexions->removeElement($agentConnexion)) {
+            // set the owning side to null (unless already changed)
+            if ($agentConnexion->getAgent() === $this) {
+                $agentConnexion->setAgent(null);
             }
         }
 

@@ -2,13 +2,13 @@
 
 namespace App\Entity;
 
-use App\Repository\SyslogRepository;
+use App\Repository\LogRepository;
 use Doctrine\DBAL\Types\Types;
 use App\Entity\NetworkSwitch;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: SyslogRepository::class)]
-class Syslog
+#[ORM\Entity(repositoryClass: LogRepository::class)]
+class Log
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

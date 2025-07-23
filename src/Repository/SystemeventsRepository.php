@@ -33,16 +33,4 @@ class SystemeventsRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /**
-     * @param string $tag
-     * @return Systemevents[]
-     */
-    public function findBySyslogTag(string $tag): array
-    {
-        return $this->createQueryBuilder('s')
-            ->andWhere('s.syslogtag = :tag')
-            ->setParameter('tag', $tag)
-            ->getQuery()
-            ->getResult();
-    }
 }

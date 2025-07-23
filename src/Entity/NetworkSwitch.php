@@ -35,13 +35,13 @@ class NetworkSwitch
     #[ORM\OneToMany(mappedBy: 'networkSwitch', targetEntity: Position::class)]
     private Collection $positions;
 
-    #[ORM\OneToMany(mappedBy: 'switch', targetEntity: Syslog::class)]
-    private Collection $syslogs;
+    #[ORM\OneToMany(mappedBy: 'switch', targetEntity: Log::class)]
+    private Collection $logs;
 
     public function __construct()
     {
         $this->positions = new ArrayCollection();
-        $this->syslogs = new ArrayCollection();
+        $this->logs = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -140,29 +140,29 @@ class NetworkSwitch
     }
 
     /**
-     * @return Collection<int, Syslog>
+     * @return Collection<int, Log>
      */
-    public function getSyslogs(): Collection
+    public function getLogs(): Collection
     {
-        return $this->syslogs;
+        return $this->logs;
     }
 
-    public function addSyslog(Syslog $syslog): static
+    public function addLog(Log $log): static
     {
-        if (!$this->syslogs->contains($syslog)) {
-            $this->syslogs->add($syslog);
-            $syslog->setSwitch($this);
+        if (!$this->logs->contains($log)) {
+            $this->logs->add($log);
+            $log->setSwitch($this);
         }
 
         return $this;
     }
 
-    public function removeSyslog(Syslog $syslog): static
+    public function removeLog(Log $log): static
     {
-        if ($this->syslogs->removeElement($syslog)) {
+        if ($this->logs->removeElement($log)) {
             // set the owning side to null (unless already changed)
-            if ($syslog->getSwitch() === $this) {
-                $syslog->setSwitch(null);
+            if ($log->getSwitch() === $this) {
+                $log->setSwitch(null);
             }
         }
 
