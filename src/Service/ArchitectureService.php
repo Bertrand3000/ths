@@ -242,4 +242,464 @@ class ArchitectureService
             rand(1000, 9999)
         );
     }
+
+    //region Lecture
+    /**
+     * Retourne tous les sites.
+     * @return Site[]
+     */
+    public function getSites(): array
+    {
+        return $this->em->getRepository(Site::class)->findAll();
+    }
+
+    /**
+     * Retourne le site principal (ou premier site).
+     * @return Site|null
+     */
+    public function getSitePrincipal(): ?Site
+    {
+        return $this->em->getRepository(Site::class)->findOneBy([]);
+    }
+
+    /**
+     * Retourne tous les étages d'un site.
+     * @param Site $site
+     * @return Etage[]
+     */
+    public function getEtages(Site $site): array
+    {
+        return $this->em->getRepository(Etage::class)->findBy(['site' => $site]);
+    }
+
+    /**
+     * Retourne tous les services d'un étage.
+     * @param Etage $etage
+     * @return Service[]
+     */
+    public function getServices(Etage $etage): array
+    {
+        return $this->em->getRepository(Service::class)->findBy(['etage' => $etage]);
+    }
+
+    /**
+     * Retourne tous les switches d'un étage.
+     * @param Etage $etage
+     * @return NetworkSwitch[]
+     */
+    public function getSwitches(Etage $etage): array
+    {
+        return $this->em->getRepository(NetworkSwitch::class)->findBy(['etage' => $etage]);
+    }
+
+    /**
+     * Retourne toutes les positions d'un étage.
+     * @param Etage $etage
+     * @return Position[]
+     */
+    public function getPositions(Etage $etage): array
+    {
+        return $this->em->getRepository(Position::class)->findBy(['etage' => $etage]);
+    }
+    //endregion
+
+    //region CRUD Site
+    /**
+     * Crée un nouveau site.
+     * @param array $data
+     * @return Site
+     */
+    public function addSite(array $data): Site
+    {
+        $site = new Site();
+        $site->setNom($data['nom']);
+        $site->setFlex($data['flex']);
+
+        $this->em->persist($site);
+        $this->em->flush();
+
+        return $site;
+    }
+
+    /**
+     * Met à jour un site existant.
+     * @param int $id
+     * @param array $data
+     * @return Site
+     */
+    public function updateSite(int $id, array $data): Site
+    {
+        $site = $this->em->getRepository(Site::class)->find($id);
+
+        if (!$site) {
+            throw new \InvalidArgumentException("Site with id $id does not exist!");
+        }
+
+        $site->setNom($data['nom']);
+        $site->setFlex($data['flex']);
+
+        $this->em->flush();
+
+        return $site;
+    }
+
+    /**
+     * Supprime un site.
+     * @param int $id
+     * @return bool
+     */
+    public function deleteSite(int $id): bool
+    {
+        $site = $this->em->getRepository(Site::class)->find($id);
+
+        if (!$site) {
+            throw new \InvalidArgumentException("Site with id $id does not exist!");
+        }
+
+        $this->em->remove($site);
+        $this->em->flush();
+
+        return true;
+    }
+    //endregion
+
+    //region CRUD Etage
+    /**
+     * Crée un nouvel étage.
+     * @param array $data
+     * @return Etage
+     */
+    public function addEtage(array $data): Etage
+    {
+        $site = $this->em->getRepository(Site::class)->find($data['site_id']);
+        if (!$site) {
+            throw new \InvalidArgumentException("Site with id {$data['site_id']} does not exist!");
+        }
+
+        $etage = new Etage();
+        $etage->setSite($site);
+        $etage->setNom($data['nom']);
+        $etage->setArriereplan($data['arriereplan']);
+        $etage->setLargeur($data['largeur']);
+        $etage->setHauteur($data['hauteur']);
+
+        $this->em->persist($etage);
+        $this->em->flush();
+
+        return $etage;
+    }
+
+    /**
+     * Met à jour un étage existant.
+     * @param int $id
+     * @param array $data
+     * @return Etage
+     */
+    public function updateEtage(int $id, array $data): Etage
+    {
+        $etage = $this->em->getRepository(Etage::class)->find($id);
+
+        if (!$etage) {
+            throw new \InvalidArgumentException("Etage with id $id does not exist!");
+        }
+
+        if (isset($data['site_id'])) {
+            $site = $this->em->getRepository(Site::class)->find($data['site_id']);
+            if (!$site) {
+                throw new \InvalidArgumentException("Site with id {$data['site_id']} does not exist!");
+            }
+            $etage->setSite($site);
+        }
+
+        $etage->setNom($data['nom']);
+        $etage->setArriereplan($data['arriereplan']);
+        $etage->setLargeur($data['largeur']);
+        $etage->setHauteur($data['hauteur']);
+
+        $this->em->flush();
+
+        return $etage;
+    }
+
+    /**
+     * Supprime un étage.
+     * @param int $id
+     * @return bool
+     */
+    public function deleteEtage(int $id): bool
+    {
+        $etage = $this->em->getRepository(Etage::class)->find($id);
+
+        if (!$etage) {
+            throw new \InvalidArgumentException("Etage with id $id does not exist!");
+        }
+
+        $this->em->remove($etage);
+        $this->em->flush();
+
+        return true;
+    }
+    //endregion
+
+    //region CRUD Service
+    /**
+     * Crée un nouveau service.
+     * @param array $data
+     * @return Service
+     */
+    public function addService(array $data): Service
+    {
+        $etage = $this->em->getRepository(Etage::class)->find($data['etage_id']);
+        if (!$etage) {
+            throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
+        }
+
+        $service = new Service();
+        $service->setEtage($etage);
+        $service->setNom($data['nom']);
+
+        $this->em->persist($service);
+        $this->em->flush();
+
+        return $service;
+    }
+
+    /**
+     * Met à jour un service existant.
+     * @param int $id
+     * @param array $data
+     * @return Service
+     */
+    public function updateService(int $id, array $data): Service
+    {
+        $service = $this->em->getRepository(Service::class)->find($id);
+
+        if (!$service) {
+            throw new \InvalidArgumentException("Service with id $id does not exist!");
+        }
+
+        if (isset($data['etage_id'])) {
+            $etage = $this->em->getRepository(Etage::class)->find($data['etage_id']);
+            if (!$etage) {
+                throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
+            }
+            $service->setEtage($etage);
+        }
+
+        $service->setNom($data['nom']);
+
+        $this->em->flush();
+
+        return $service;
+    }
+
+    /**
+     * Supprime un service.
+     * @param int $id
+     * @return bool
+     */
+    public function deleteService(int $id): bool
+    {
+        $service = $this->em->getRepository(Service::class)->find($id);
+
+        if (!$service) {
+            throw new \InvalidArgumentException("Service with id $id does not exist!");
+        }
+
+        $this->em->remove($service);
+        $this->em->flush();
+
+        return true;
+    }
+    //endregion
+
+    //region CRUD Switch
+    /**
+     * Crée un nouveau switch.
+     * @param array $data
+     * @return NetworkSwitch
+     */
+    public function addSwitch(array $data): NetworkSwitch
+    {
+        $etage = $this->em->getRepository(Etage::class)->find($data['etage_id']);
+        if (!$etage) {
+            throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
+        }
+
+        $switch = new NetworkSwitch();
+        $switch->setEtage($etage);
+        $switch->setNom($data['nom']);
+        $switch->setNbprises($data['nbprises']);
+        $switch->setCoordx($data['coordx']);
+        $switch->setCoordy($data['coordy']);
+
+        $this->em->persist($switch);
+        $this->em->flush();
+
+        return $switch;
+    }
+
+    /**
+     * Met à jour un switch existant.
+     * @param int $id
+     * @param array $data
+     * @return NetworkSwitch
+     */
+    public function updateSwitch(int $id, array $data): NetworkSwitch
+    {
+        $switch = $this->em->getRepository(NetworkSwitch::class)->find($id);
+
+        if (!$switch) {
+            throw new \InvalidArgumentException("Switch with id $id does not exist!");
+        }
+
+        if (isset($data['etage_id'])) {
+            $etage = $this->em->getRepository(Etage::class)->find($data['etage_id']);
+            if (!$etage) {
+                throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
+            }
+            $switch->setEtage($etage);
+        }
+
+        $switch->setNom($data['nom']);
+        $switch->setNbprises($data['nbprises']);
+        $switch->setCoordx($data['coordx']);
+        $switch->setCoordy($data['coordy']);
+
+        $this->em->flush();
+
+        return $switch;
+    }
+
+    /**
+     * Supprime un switch.
+     * @param int $id
+     * @return bool
+     */
+    public function deleteSwitch(int $id): bool
+    {
+        $switch = $this->em->getRepository(NetworkSwitch::class)->find($id);
+
+        if (!$switch) {
+            throw new \InvalidArgumentException("Switch with id $id does not exist!");
+        }
+
+        $this->em->remove($switch);
+        $this->em->flush();
+
+        return true;
+    }
+    //endregion
+
+    //region CRUD Position
+    /**
+     * Crée une nouvelle position.
+     * @param array $data
+     * @return Position
+     */
+    public function addPosition(array $data): Position
+    {
+        $etage = $this->em->getRepository(Etage::class)->find($data['etage_id']);
+        if (!$etage) {
+            throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
+        }
+
+        $service = $this->em->getRepository(Service::class)->find($data['service_id']);
+        if (!$service) {
+            throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+        }
+
+        $switch = $this->em->getRepository(NetworkSwitch::class)->find($data['switch_id']);
+        if (!$switch) {
+            throw new \InvalidArgumentException("Switch with id {$data['switch_id']} does not exist!");
+        }
+
+        $position = new Position();
+        $position->setEtage($etage);
+        $position->setService($service);
+        $position->setNetworkSwitch($switch);
+        $position->setCoordx($data['coordx']);
+        $position->setCoordy($data['coordy']);
+        $position->setPrise($data['prise']);
+        $position->setMac($data['mac'] ?? null);
+        $position->setType($data['type']);
+        $position->setSanctuaire($data['sanctuaire']);
+        $position->setFlex($data['flex']);
+
+        $this->em->persist($position);
+        $this->em->flush();
+
+        return $position;
+    }
+
+    /**
+     * Met à jour une position existante.
+     * @param int $id
+     * @param array $data
+     * @return Position
+     */
+    public function updatePosition(int $id, array $data): Position
+    {
+        $position = $this->em->getRepository(Position::class)->find($id);
+
+        if (!$position) {
+            throw new \InvalidArgumentException("Position with id $id does not exist!");
+        }
+
+        if (isset($data['etage_id'])) {
+            $etage = $this->em->getRepository(Etage::class)->find($data['etage_id']);
+            if (!$etage) {
+                throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
+            }
+            $position->setEtage($etage);
+        }
+
+        if (isset($data['service_id'])) {
+            $service = $this->em->getRepository(Service::class)->find($data['service_id']);
+            if (!$service) {
+                throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+            }
+            $position->setService($service);
+        }
+
+        if (isset($data['switch_id'])) {
+            $switch = $this->em->getRepository(NetworkSwitch::class)->find($data['switch_id']);
+            if (!$switch) {
+                throw new \InvalidArgumentException("Switch with id {$data['switch_id']} does not exist!");
+            }
+            $position->setNetworkSwitch($switch);
+        }
+
+        $position->setCoordx($data['coordx']);
+        $position->setCoordy($data['coordy']);
+        $position->setPrise($data['prise']);
+        $position->setMac($data['mac'] ?? null);
+        $position->setType($data['type']);
+        $position->setSanctuaire($data['sanctuaire']);
+        $position->setFlex($data['flex']);
+
+        $this->em->flush();
+
+        return $position;
+    }
+
+    /**
+     * Supprime une position.
+     * @param int $id
+     * @return bool
+     */
+    public function deletePosition(int $id): bool
+    {
+        $position = $this->em->getRepository(Position::class)->find($id);
+
+        if (!$position) {
+            throw new \InvalidArgumentException("Position with id $id does not exist!");
+        }
+
+        $this->em->remove($position);
+        $this->em->flush();
+
+        return true;
+    }
+    //endregion
 }
