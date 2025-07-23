@@ -142,10 +142,9 @@ src/Controlleur/
 #### 4.1.2 Services métier
 ```
 src/Service/
-├── PositionService.php                 # Logique géolocalisation (actualisation, etc)
-├── CorrespondanceService.php           # Algorithme MAC/Switch
-├── AlerteService.php                   # Gestion alertes
+├── ArchitectureService.php             # Gestion de l'architecture fixe
 ├── StatsService.php                    # Calculs statistiques
+├── PositionService.php                 # Lecture et actualisation des positions
 └── SyslogService.php                   # Parseur syslog
 ```
 
@@ -220,7 +219,7 @@ CREATE TABLE position (
     coordx INTEGER NOT NULL,
     coordy INTEGER NOT NULL,
     prise VARCHAR(10) NOT NULL,                                         -- Numéro de prise sur le switch
-    mac VARCHAR(17) NOT NULL,                                           -- Format MAC standard XX:XX:XX:XX:XX:XX
+    mac VARCHAR(17) NULL,                                               -- Format MAC standard XX:XX:XX:XX:XX:XX
     type VARCHAR(13) NOT NULL,                                          -- Echange, Concentration, Bulle, Réunion, Formation
     sanctuaire BOOLEAN NOT NULL DEFAULT FALSE,                          -- Si TRUE, le poste ne peut être utilisé que par le service où il a été rattaché
     flex BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Indique si le poste est concerné par Téhou ou non
@@ -252,7 +251,7 @@ CREATE TABLE agent (
 );
 CREATE INDEX idx_agent_idservice ON agent(idservice);
 
-CREATE TABLE switch (
+CREATE TABLE network_switch (
     id INTEGER PRIMARY KEY,                                             -- Autoincrémenté
     idetage INTEGER NOT NULL,
     nom VARCHAR(100) NOT NULL,
@@ -263,22 +262,12 @@ CREATE TABLE switch (
 );
 CREATE INDEX idx_switch_idetage ON switch(idetage);
 
-CREATE TABLE log (
-    id INTEGER PRIMARY KEY,
-    idswitch INTEGER NOT NULL,
-    timestamp DATETIME NOT NULL,
-    message VARCHAR(255) NOT NULL,
-    FOREIGN KEY (idswitch) REFERENCES switch(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_log_idswitch ON log(idswitch);
-CREATE INDEX idx_log_timestamp ON log(timestamp);
-
 CREATE TABLE agent_connexion (
     id INTEGER PRIMARY KEY,
     numagent VARCHAR(5) NOT NULL,
     type VARCHAR(15) NOT NULL,
-    ip VARCHAR(15) NULL,
-    mac VARCHAR(17) NULL,
+    ip VARCHAR(15) NOT NULL,
+    mac VARCHAR(17) NOT NULL,
     dateconnexion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     dateactualisation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (numagent) REFERENCES agent(numagent) ON DELETE CASCADE
