@@ -74,9 +74,6 @@ class Systemevents
     private ?int $infounitid = null;
 
     #[ORM\Column(length: 60, nullable: true)]
-    private ?string $syslogtag = null;
-
-    #[ORM\Column(length: 60, nullable: true)]
     private ?string $eventlogtype = null;
 
     #[ORM\Column(length: 60, nullable: true)]
@@ -322,18 +319,6 @@ class Systemevents
     public function setInfounitid(?int $infounitid): static
     {
         $this->infounitid = $infounitid;
-
-        return $this;
-    }
-
-    public function getSyslogtag(): ?string
-    {
-        return $this->syslogtag;
-    }
-
-    public function setSyslogtag(?string $syslogtag): static
-    {
-        $this->syslogtag = $syslogtag;
 
         return $this;
     }

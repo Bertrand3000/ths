@@ -263,23 +263,35 @@ CREATE TABLE switch (
 );
 CREATE INDEX idx_switch_idetage ON switch(idetage);
 
-CREATE TABLE syslog (
+CREATE TABLE log (
     id INTEGER PRIMARY KEY,
     idswitch INTEGER NOT NULL,
     timestamp DATETIME NOT NULL,
     message VARCHAR(255) NOT NULL,
     FOREIGN KEY (idswitch) REFERENCES switch(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_syslog_idswitch ON syslog(idswitch);
-CREATE INDEX idx_syslog_timestamp ON syslog(timestamp);
+CREATE INDEX idx_log_idswitch ON log(idswitch);
+CREATE INDEX idx_log_timestamp ON log(timestamp);
+
+CREATE TABLE agent_connexion (
+    id INTEGER PRIMARY KEY,
+    numagent VARCHAR(5) NOT NULL,
+    type VARCHAR(15) NOT NULL,
+    ip VARCHAR(15) NULL,
+    mac VARCHAR(17) NULL,
+    dateconnexion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    dateactualisation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (numagent) REFERENCES agent(numagent) ON DELETE CASCADE
+);
+CREATE INDEX idx_agent_connexion_numagent ON agent_connexion(numagent);
+CREATE INDEX idx_agent_connexion_type ON agent_connexion(type);
 
 CREATE TABLE agent_position (
     numagent VARCHAR(5) PRIMARY KEY,
     idposition INTEGER NOT NULL,
     jour DATE DEFAULT CURRENT_DATE,
     dateconnexion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    dateactualisation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ip VARCHAR(15) NOT NULL,
+    dateexpiration TIMESTAMP NULL,
     FOREIGN KEY (numagent) REFERENCES agent(numagent) ON DELETE CASCADE,
     FOREIGN KEY (idposition) REFERENCES position(id) ON DELETE CASCADE
 );

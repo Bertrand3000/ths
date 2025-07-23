@@ -24,11 +24,8 @@ class AgentPosition
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $dateconnexion = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private ?\DateTimeInterface $dateactualisation = null;
-
-    #[ORM\Column(length: 15)]
-    private ?string $ip = null;
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $dateexpiration = null;
 
     public function getAgent(): ?Agent
     {
@@ -78,26 +75,14 @@ class AgentPosition
         return $this;
     }
 
-    public function getDateactualisation(): ?\DateTimeInterface
+    public function getDateexpiration(): ?\DateTimeInterface
     {
-        return $this->dateactualisation;
+        return $this->dateexpiration;
     }
 
-    public function setDateactualisation(\DateTimeInterface $dateactualisation): static
+    public function setDateexpiration(?\DateTimeInterface $dateexpiration): static
     {
-        $this->dateactualisation = $dateactualisation;
-
-        return $this;
-    }
-
-    public function getIp(): ?string
-    {
-        return $this->ip;
-    }
-
-    public function setIp(string $ip): static
-    {
-        $this->ip = $ip;
+        $this->dateexpiration = $dateexpiration;
 
         return $this;
     }
