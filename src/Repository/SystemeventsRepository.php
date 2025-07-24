@@ -37,16 +37,21 @@ class SystemeventsRepository extends ServiceEntityRepository
      * Récupère les nouveaux événements depuis le dernier ID traité.
      *
      * @param int $lastId L'ID du dernier événement traité.
+     * @param int|null $limit Le nombre maximum d'événements à retourner.
      * @return Systemevents[]
      */
-    public function findNewEvents(int $lastId): array
+    public function findNewEvents(int $lastId, ?int $limit = null): array
     {
-        return $this->createQueryBuilder('s')
+        $qb = $this->createQueryBuilder('s')
             ->andWhere('s.id > :lastId')
             ->setParameter('lastId', $lastId)
-            ->orderBy('s.id', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('s.id', 'ASC');
+
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
