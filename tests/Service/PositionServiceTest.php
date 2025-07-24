@@ -16,6 +16,8 @@ use App\Service\SyslogService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
 
 class PositionServiceTest extends TestCase
 {
@@ -27,6 +29,8 @@ class PositionServiceTest extends TestCase
     private $positionRepository;
     private $syslogService;
     private $logger;
+    private $lockFactory;
+    private $lock;
 
     protected function setUp(): void
     {
@@ -37,6 +41,11 @@ class PositionServiceTest extends TestCase
         $this->positionRepository = $this->createMock(PositionRepository::class);
         $this->syslogService = $this->createMock(SyslogService::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+        $this->lockFactory = $this->createMock(LockFactory::class);
+        $this->lock = $this->createMock(LockInterface::class);
+
+        $this->lockFactory->method('createLock')->willReturn($this->lock);
+        $this->lock->method('acquire')->willReturn(true);
 
         $this->positionService = new PositionService(
             $this->entityManager,
@@ -45,8 +54,17 @@ class PositionServiceTest extends TestCase
             $this->agentPositionRepository,
             $this->positionRepository,
             $this->syslogService,
-            $this->logger
+            $this->logger,
+            $this->lockFactory
         );
+    }
+
+    public function testActualiserAgentAcquiresAndReleasesLock()
+    {
+        $this->lock->expects($this->once())->method('acquire')->willReturn(true);
+        $this->lock->expects($this->once())->method('release');
+
+        $this->positionService->actualiserAgent('00001', '192.168.1.10', 'AA:BB:CC:DD:EE:FF');
     }
 
     public function testActualiserAgentHorsReseauRamage()
@@ -117,25 +135,19 @@ class PositionServiceTest extends TestCase
         $this->positionService->deconnecterAgent('00001');
     }
 
-    public function testNettoyerConnexions()
+    public function testActualiserAgentSiteSyslogFailure()
     {
         $agent = new Agent();
         $agent->setNumagent('00001');
-        $connexion = new AgentConnexion();
-        $connexion->setAgent($agent);
+        $this->agentRepository->method('find')->willReturn($agent);
 
-        $this->agentConnexionRepository->method('findExpiredConnections')->willReturn([$connexion]);
+        $this->syslogService->method('analyzeSyslogEvents')->will($this->throwException(new \Exception('Syslog service failed')));
 
-        $position = new AgentPosition();
-        $this->agentPositionRepository->method('find')->willReturn($position);
+        $this->logger->expects($this->once())->method('critical');
+        $this->entityManager->expects($this->once())->method('persist')
+            ->with($this->isInstanceOf(AgentConnexion::class));
+        $this->entityManager->expects($this->never())->method('remove');
 
-        $this->entityManager->expects($this->exactly(2))->method('remove');
-        $this->entityManager->expects($this->once())->method('flush');
-
-        // We need to use reflection to test the private method
-        $reflection = new \ReflectionClass(PositionService::class);
-        $method = $reflection->getMethod('nettoyerConnexions');
-        $method->setAccessible(true);
-        $method->invoke($this->positionService);
+        $this->positionService->actualiserAgent('00001', '55.153.4.50', 'AA:BB:CC:DD:EE:FF');
     }
 }

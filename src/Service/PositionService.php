@@ -12,6 +12,7 @@ use App\Repository\AgentRepository;
 use App\Repository\PositionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Lock\LockFactory;
 
 class PositionService
 {
@@ -24,7 +25,8 @@ class PositionService
         private readonly AgentPositionRepository $agentPositionRepository,
         private readonly PositionRepository $positionRepository,
         private readonly SyslogService $syslogService,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly LockFactory $lockFactory
     ) {
     }
 
@@ -37,74 +39,92 @@ class PositionService
      */
     public function actualiserAgent(string $numeroAgent, string $ip, string $mac): void
     {
-        $this->nettoyerConnexions();
+        $lock = $this->lockFactory->createLock('agent-'.$numeroAgent);
 
-        $typeConnexion = $this->determinerTypeConnexion($ip);
-
-        if ($typeConnexion === null) {
-            $this->logger->info("Connexion hors réseau RAMAGE pour l'agent $numeroAgent (IP: $ip). Traitement arrêté.");
+        if (!$lock->acquire()) {
+            $this->logger->warning("Impossible d'acquérir le verrou pour l'agent $numeroAgent. Une autre opération est en cours.");
             return;
         }
 
-        $agent = $this->agentRepository->find($numeroAgent);
-        if (!$agent) {
-            $this->logger->warning("Agent non trouvé pour le numéro: $numeroAgent");
-            return;
-        }
+        try {
+            $typeConnexion = $this->determinerTypeConnexion($ip);
 
-        // Gérer agent_connexion
-        $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]) ?? new AgentConnexion();
-        $connexion->setAgent($agent);
-        $connexion->setType($typeConnexion);
-        $connexion->setIp($ip);
-        $connexion->setMac($mac);
-        if ($connexion->getId() === null) {
-            $connexion->setDateconnexion(new \DateTime());
-        }
-        $connexion->setDateactualisation(new \DateTime());
-        $this->em->persist($connexion);
+            if ($typeConnexion === null) {
+                $this->logger->info("Connexion hors réseau RAMAGE pour l'agent $numeroAgent (IP: $ip). Traitement arrêté.");
+                return;
+            }
 
-        // Gérer agent_position
-        $position = $this->agentPositionRepository->find($agent->getNumagent());
+            $agent = $this->agentRepository->find($numeroAgent);
+            if (!$agent) {
+                $this->logger->warning("Agent non trouvé pour le numéro: $numeroAgent");
+                return;
+            }
 
-        switch ($typeConnexion) {
-            case TypeConnexion::TELETRAVAIL:
-                if ($position) {
-                    $this->em->remove($position);
-                }
-                break;
+            // Gérer agent_connexion
+            $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]) ?? new AgentConnexion();
+            $connexion->setAgent($agent);
+            $connexion->setType($typeConnexion);
+            $connexion->setIp($ip);
+            $connexion->setMac($mac);
+            if ($connexion->getId() === null) {
+                $connexion->setDateconnexion(new \DateTime());
+            }
+            $connexion->setDateactualisation(new \DateTime());
+            $this->em->persist($connexion);
 
-            case TypeConnexion::SITE:
-                // Pour le mode SITE, nous devons trouver la position via le syslog
-                $this->syslogService->analyzeSyslogEvents();
-                // La position devrait maintenant être mise à jour avec la bonne MAC
-                // Nous devons trouver la position par MAC
-                $positionTrouvee = $this->positionRepository->findOneBy(['mac' => $mac]);
+            // Gérer agent_position
+            $position = $this->agentPositionRepository->find($agent->getNumagent());
 
-                if ($positionTrouvee) {
-                    if ($position === null) {
-                        $position = new AgentPosition();
-                        $position->setAgent($agent);
-                        $position->setJour(new \DateTime());
-                        $position->setDateconnexion(new \DateTime());
-                    }
-                    $position->setPosition($positionTrouvee);
-                    $this->em->persist($position);
-                } else {
-                    $this->logger->warning("Impossible de trouver une position pour la MAC $mac pour l'agent $numeroAgent");
-                    // Si on ne trouve pas de position, on supprime l'ancienne au cas où
+            switch ($typeConnexion) {
+                case TypeConnexion::TELETRAVAIL:
                     if ($position) {
                         $this->em->remove($position);
                     }
-                }
-                break;
+                    break;
 
-            case TypeConnexion::WIFI:
-                // Ne rien faire sur la position
-                break;
+                case TypeConnexion::SITE:
+                    try {
+                        // Pour le mode SITE, nous devons trouver la position via le syslog
+                        $this->syslogService->analyzeSyslogEvents();
+                    } catch (\Exception $e) {
+                        $this->logger->critical(
+                            "Erreur critique lors de l'analyse des événements syslog pour l'agent {agent}: {message}",
+                            ['agent' => $numeroAgent, 'message' => $e->getMessage()]
+                        );
+                        // On arrête le traitement pour cet agent pour ne pas assigner une mauvaise position
+                        return;
+                    }
+                    // La position devrait maintenant être mise à jour avec la bonne MAC
+                    // Nous devons trouver la position par MAC
+                    $positionTrouvee = $this->positionRepository->findOneBy(['mac' => $mac]);
+
+                    if ($positionTrouvee) {
+                        if ($position === null) {
+                            $position = new AgentPosition();
+                            $position->setAgent($agent);
+                            $position->setJour(new \DateTime());
+                            $position->setDateconnexion(new \DateTime());
+                        }
+                        $position->setPosition($positionTrouvee);
+                        $this->em->persist($position);
+                    } else {
+                        $this->logger->warning("Impossible de trouver une position pour la MAC $mac pour l'agent $numeroAgent");
+                        // Si on ne trouve pas de position, on supprime l'ancienne au cas où
+                        if ($position) {
+                            $this->em->remove($position);
+                        }
+                    }
+                    break;
+
+                case TypeConnexion::WIFI:
+                    // Ne rien faire sur la position
+                    break;
+            }
+
+            $this->em->flush();
+        } finally {
+            $lock->release();
         }
-
-        $this->em->flush();
     }
 
     /**
@@ -210,7 +230,7 @@ class PositionService
      * actualisés depuis plus de `CONNECTION_TIMEOUT`. Elle supprime également les
      * enregistrements `agent_position` associés.
      */
-    private function nettoyerConnexions(): void
+    public function nettoyerConnexions(): void
     {
         $timeout = new \DateTime();
         $timeout->modify('-' . self::CONNECTION_TIMEOUT);
