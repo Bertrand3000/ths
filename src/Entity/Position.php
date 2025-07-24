@@ -37,7 +37,7 @@ class Position
     #[ORM\Column(length: 10)]
     private ?string $prise = null;
 
-    #[ORM\Column(length: 17)]
+    #[ORM\Column(length: 17, nullable: true)]
     private ?string $mac = null;
 
     #[ORM\Column(length: 13)]
@@ -142,7 +142,7 @@ class Position
         return $this->mac;
     }
 
-    public function setMac(string $mac): static
+    public function setMac(?string $mac): static
     {
         $this->mac = $mac;
 

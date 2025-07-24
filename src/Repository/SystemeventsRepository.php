@@ -33,4 +33,35 @@ class SystemeventsRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Récupère les nouveaux événements depuis le dernier ID traité.
+     *
+     * @param int $lastId L'ID du dernier événement traité.
+     * @return Systemevents[]
+     */
+    public function findNewEvents(int $lastId): array
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.id > :lastId')
+            ->setParameter('lastId', $lastId)
+            ->orderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Supprime les événements dont l'ID est inférieur ou égal à l'ID fourni.
+     *
+     * @param int $maxId L'ID maximum des événements à supprimer.
+     * @return int Le nombre d'événements supprimés.
+     */
+    public function deleteOldEvents(int $maxId): int
+    {
+        return $this->createQueryBuilder('s')
+            ->delete()
+            ->where('s.id <= :maxId')
+            ->setParameter('maxId', $maxId)
+            ->getQuery()
+            ->execute();
+    }
 }
