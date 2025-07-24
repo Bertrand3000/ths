@@ -20,4 +20,16 @@ class AgentConnexionRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, AgentConnexion::class);
     }
+
+    /**
+     * @return AgentConnexion[]
+     */
+    public function findExpiredConnections(\DateTimeInterface $timeout): array
+    {
+        return $this->createQueryBuilder('ac')
+            ->andWhere('ac.dateactualisation < :timeout')
+            ->setParameter('timeout', $timeout)
+            ->getQuery()
+            ->getResult();
+    }
 }
