@@ -145,7 +145,7 @@ src/Service/
 ├── ArchitectureService.php             # Gestion de l'architecture fixe (CRUD complet)
 ├── StatsService.php                    # Calculs statistiques
 ├── PositionService.php                 # Lecture et actualisation des positions
-└── SyslogService.php                   # Parseur syslog
+└── SyslogService.php                   # Parseur syslog pour la correspondance MAC/Position
 ```
 
 ### 4.2 API REST Endpoints
