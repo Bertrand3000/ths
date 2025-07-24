@@ -443,6 +443,30 @@ private function updateCurrentPosition(Agent $agent, Location $location, array $
 
 ## 7. Interfaces utilisateur
 
+### 6.3 Robustesse et Monitoring (Implémentation V2)
+
+La version 2 du `SyslogService` a été renforcée pour garantir sa stabilité et sa performance en environnement de production.
+
+#### 6.3.1 Traitement par Lots (Batch Processing)
+Pour gérer un volume élevé de logs sans impacter la mémoire et le temps de réponse, le service traite les événements par lots.
+- **Taille de lot configurable** : `tehou.syslog.batch_size` (défaut: 1000)
+- **Libération mémoire** : L'EntityManager est vidé (`clear()`) après chaque lot.
+
+#### 6.3.2 Circuit Breaker
+Un mécanisme de sécurité arrête le traitement si des conditions anormarles sont détectées :
+- **Nombre d'erreurs maximum** : `tehou.syslog.max_errors` (défaut: 100)
+- **Temps de traitement maximum** : `tehou.syslog.max_processing_time` (défaut: 300s)
+
+#### 6.3.3 Logging et Métriques
+Un logging détaillé a été mis en place avec `LoggerInterface` :
+- **INFO** : Statistiques de fin de traitement (nombre d'événements, durée, erreurs, etc.).
+- **WARNING** : Switches non trouvés, adresses MAC invalides.
+- **ERROR** : Messages de log non reconnus.
+- **CRITICAL** : Erreurs inattendues lors du traitement.
+
+#### 6.3.4 Parsing Flexible
+Les expressions régulières (regex) sont externalisées dans `config/packages/tehou.yaml`, permettant d'ajouter de nouveaux formats de log sans modifier le code PHP.
+
 ### 7.1 Niveaux d'accès
 
 #### 7.1.1 Droits par profil

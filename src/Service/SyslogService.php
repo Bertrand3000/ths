@@ -7,9 +7,11 @@ use App\Repository\NetworkSwitchRepository;
 use App\Repository\PositionRepository;
 use App\Repository\SystemeventsRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 /**
- * Service pour l'analyse des événements réseau syslog et la mise à jour des correspondances MAC/Position.
+ * Service d'analyse des événements syslog avec gestion robuste des erreurs
  */
 class SyslogService
 {
@@ -21,49 +23,101 @@ class SyslogService
         private readonly ConfigRepository $configRepository,
         private readonly SystemeventsRepository $systemeventsRepository,
         private readonly PositionRepository $positionRepository,
-        private readonly NetworkSwitchRepository $networkSwitchRepository
+        private readonly NetworkSwitchRepository $networkSwitchRepository,
+        private readonly LoggerInterface $logger,
+        private readonly ParameterBagInterface $parameterBag
     ) {
     }
 
     /**
-     * Analyse les nouveaux événements syslog et met à jour les positions.
+     * Analyse les événements syslog par lots pour optimiser les performances.
      *
-     * @return int Nombre d'événements traités
-     * @throws \Exception
+     * @return int Nombre total d'événements traités
      */
     public function analyzeSyslogEvents(): int
     {
-        $dernierIdTraite = (int) ($this->configRepository->find(self::DERNIER_SYSLOG_ID_KEY)?->getValeur() ?? 0);
-        $nouveauxEvenements = $this->systemeventsRepository->findNewEvents($dernierIdTraite);
+        $batchSize = $this->parameterBag->get('tehou.syslog.batch_size');
+        $maxProcessingTime = $this->parameterBag->get('tehou.syslog.max_processing_time');
+        $dernierIdTraite = (int)($this->configRepository->find(self::DERNIER_SYSLOG_ID_KEY)?->getValeur() ?? 0);
 
-        if (empty($nouveauxEvenements)) {
-            return 0;
-        }
+        $startTime = microtime(true);
+        $totalProcessed = 0;
+        $errorCount = 0;
 
-        $this->em->beginTransaction();
-        try {
-            foreach ($nouveauxEvenements as $event) {
+        do {
+            if ($this->shouldStopProcessing($errorCount, $startTime, $maxProcessingTime)) {
+                $this->logger->warning('Arrêt du traitement syslog - Circuit breaker activé', [
+                    'error_count' => $errorCount,
+                    'processing_time' => microtime(true) - $startTime,
+                ]);
+                break;
+            }
+
+            $events = $this->systemeventsRepository->findNewEvents($dernierIdTraite, $batchSize);
+            if (empty($events)) {
+                break;
+            }
+
+            $batchResult = $this->processBatch($events);
+            $totalProcessed += $batchResult['processed'];
+            $errorCount += $batchResult['errors'];
+
+            $dernierIdTraite = $events[count($events) - 1]->getId();
+            $this->updateDernierIdTraite($dernierIdTraite);
+
+            $this->em->flush();
+            $this->em->clear();
+
+        } while (count($events) === $batchSize);
+
+        $this->recordProcessingMetrics($totalProcessed, $errorCount, microtime(true) - $startTime);
+
+        return $totalProcessed;
+    }
+
+    /**
+     * Traite un lot d'événements.
+     *
+     * @param array $events
+     * @return array ['processed' => int, 'errors' => int]
+     */
+    private function processBatch(array $events): array
+    {
+        $processed = 0;
+        $errors = 0;
+
+        foreach ($events as $event) {
+            $processed++;
+            try {
                 $this->processSyslogMessage($event->getMessage() ?? '', $event->getSyslogtag() ?? '');
-                $dernierIdTraite = $event->getId();
+            } catch (\Exception $e) {
+                $this->logger->critical('Erreur critique pendant le traitement d\'un événement syslog', [
+                    'event_id' => $event->getId(),
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                $errors++;
             }
-
-            $configDernierId = $this->configRepository->find(self::DERNIER_SYSLOG_ID_KEY);
-            if (!$configDernierId) {
-                $configDernierId = new \App\Entity\Config();
-                $configDernierId->setCle(self::DERNIER_SYSLOG_ID_KEY);
-                $this->em->persist($configDernierId);
-            }
-            $configDernierId->setValeur((string)$dernierIdTraite);
-            $configDernierId->setDateMaj(new \DateTime());
-
-            $this->em->commit();
-        } catch (\Exception $e) {
-            $this->em->rollback();
-            // Logger l'erreur, par exemple avec un service de log injecté
-            throw $e;
         }
 
-        return count($nouveauxEvenements);
+        return ['processed' => $processed, 'errors' => $errors];
+    }
+
+    /**
+     * Met à jour la valeur de configuration du dernier ID traité.
+     *
+     * @param int $dernierIdTraite
+     */
+    private function updateDernierIdTraite(int $dernierIdTraite): void
+    {
+        $configDernierId = $this->configRepository->find(self::DERNIER_SYSLOG_ID_KEY);
+        if (!$configDernierId) {
+            $configDernierId = new \App\Entity\Config();
+            $configDernierId->setCle(self::DERNIER_SYSLOG_ID_KEY);
+            $this->em->persist($configDernierId);
+        }
+        $configDernierId->setValeur((string)$dernierIdTraite);
+        $configDernierId->setDateMaj(new \DateTime());
     }
 
     /**
@@ -74,19 +128,58 @@ class SyslogService
      */
     private function processSyslogMessage(string $message, string $syslogTag): void
     {
-        // Connexion: %%10LLDP/6/LLDP_CREATE_NEIGHBOR: ... port GigabitEthernet1/0/X ... MAC
-        if (preg_match('/LLDP_CREATE_NEIGHBOR:.*?port (GigabitEthernet[\d\/]+).*?port ID is ([\w-]+)/', $message, $matches)) {
-            $portName = $matches[1];
-            $macRaw = str_replace('-', '', strtolower($matches[2]));
-            $mac = implode(':', str_split($macRaw, 2));
+        if ($connectionData = $this->parseConnectionMessage($message)) {
+            $mac = $this->validateAndNormalizeMac($connectionData['mac']);
+            if ($mac) {
+                $this->updatePositionMac($syslogTag, $connectionData['port'], $mac);
+            }
+        } elseif ($disconnectionData = $this->parseDisconnectionMessage($message)) {
+            $this->updatePositionMac($syslogTag, $disconnectionData['port'], null);
+        } else {
+            $this->logger->error('Message syslog non reconnu', [
+                'message' => $message,
+                'tag' => $syslogTag,
+            ]);
+        }
+    }
 
-            $this->updatePositionMac($syslogTag, $portName, $mac);
+    /**
+     * Parse les messages de connexion avec support multi-formats.
+     *
+     * @param string $message Message syslog à analyser.
+     * @return array|null ['port' => string, 'mac' => string] ou null si échec.
+     */
+    private function parseConnectionMessage(string $message): ?array
+    {
+        $patterns = $this->parameterBag->get('tehou.syslog.regex_patterns.connection');
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $message, $matches)) {
+                return [
+                    'port' => $matches[1],
+                    'mac' => $matches[2],
+                ];
+            }
         }
-        // Déconnexion: %%10IFNET/3/PHY_UPDOWN: ... GigabitEthernet1/0/X changed to down
-        elseif (preg_match('/PHY_UPDOWN:.*?interface (GigabitEthernet[\d\/]+) changed to down/', $message, $matches)) {
-            $portName = $matches[1];
-            $this->updatePositionMac($syslogTag, $portName, null);
+        return null;
+    }
+
+    /**
+     * Parse les messages de déconnexion avec support multi-formats.
+     *
+     * @param string $message Message syslog à analyser.
+     * @return array|null ['port' => string] ou null si échec.
+     */
+    private function parseDisconnectionMessage(string $message): ?array
+    {
+        $patterns = $this->parameterBag->get('tehou.syslog.regex_patterns.disconnection');
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $message, $matches)) {
+                return [
+                    'port' => $matches[1],
+                ];
+            }
         }
+        return null;
     }
 
     /**
@@ -100,7 +193,9 @@ class SyslogService
     {
         $switch = $this->networkSwitchRepository->findOneBy(['nom' => $switchName]);
         if (!$switch) {
-            // Switch non trouvé, on pourrait logger cette information
+            $this->logger->warning('Switch non trouvé dans la base de données', [
+                'switch_name' => $switchName,
+            ]);
             return;
         }
 
@@ -155,5 +250,82 @@ class SyslogService
         $this->em->flush();
 
         return true;
+    }
+
+    /**
+     * Normalise une adresse MAC en supprimant les séparateurs et en la mettant en minuscules.
+     *
+     * @param string $mac
+     * @return string
+     */
+    private function normalizeMacAddress(string $mac): string
+    {
+        return strtolower(str_replace([':', '-', '.'], '', $mac));
+    }
+
+    /**
+     * Valide et normalise une adresse MAC.
+     *
+     * @param string $mac Adresse MAC à valider.
+     * @return string|null MAC normalisée ou null si invalide.
+     */
+    private function validateAndNormalizeMac(string $mac): ?string
+    {
+        $normalizedMac = preg_replace('/[^0-9a-fA-F]/', '', $mac);
+        $normalizedMac = strtolower($normalizedMac);
+
+        if (strlen($normalizedMac) !== 12) {
+            $this->logger->warning('Adresse MAC de longueur invalide détectée', [
+                'mac_original' => $mac,
+                'mac_normalized' => $normalizedMac
+            ]);
+            return null;
+        }
+
+        $formattedMac = implode(':', str_split($normalizedMac, 2));
+
+        if (!preg_match('/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/', $formattedMac)) {
+            $this->logger->warning('Adresse MAC invalide détectée', [
+                'mac_original' => $mac,
+                'mac_formatted' => $formattedMac
+            ]);
+            return null;
+        }
+
+        return $formattedMac;
+    }
+
+    /**
+     * Détermine si le traitement doit être arrêté (circuit breaker).
+     *
+     * @param int $errorCount
+     * @param float $startTime
+     * @param int $maxTime
+     * @return bool
+     */
+    private function shouldStopProcessing(int $errorCount, float $startTime, int $maxTime): bool
+    {
+        $maxErrors = $this->parameterBag->get('tehou.syslog.max_errors');
+        $currentDuration = microtime(true) - $startTime;
+
+        return $errorCount > $maxErrors || $currentDuration > $maxTime;
+    }
+
+    /**
+     * Enregistre les métriques de traitement pour monitoring.
+     *
+     * @param int $processed
+     * @param int $errors
+     * @param float $duration
+     */
+    private function recordProcessingMetrics(int $processed, int $errors, float $duration): void
+    {
+        $this->logger->info('Traitement syslog terminé', [
+            'events_processed' => $processed,
+            'errors_encountered' => $errors,
+            'processing_duration_seconds' => round($duration, 2),
+            'events_per_second' => $processed > 0 ? round($processed / $duration, 2) : 0,
+            'error_rate_percent' => $processed > 0 ? round(($errors / $processed) * 100, 2) : 0
+        ]);
     }
 }

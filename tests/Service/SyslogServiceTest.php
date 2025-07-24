@@ -30,13 +30,26 @@ class SyslogServiceTest extends TestCase
         $this->systemeventsRepository = $this->createMock(SystemeventsRepository::class);
         $this->positionRepository = $this->createMock(PositionRepository::class);
         $this->networkSwitchRepository = $this->createMock(NetworkSwitchRepository::class);
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $parameterBag = $this->createMock(\Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface::class);
+
+        // Mocking ParameterBag
+        $parameterBag->method('get')->willReturnMap([
+            ['tehou.syslog.batch_size', 1000],
+            ['tehou.syslog.max_processing_time', 300],
+            ['tehou.syslog.max_errors', 100],
+            ['tehou.syslog.regex_patterns.connection', ['/LLDP_CREATE_NEIGHBOR:.*?port (GigabitEthernet[\d\/]+).*?port ID is ([\w-]+)/']],
+            ['tehou.syslog.regex_patterns.disconnection', ['/PHY_UPDOWN:.*?interface (GigabitEthernet[\d\/]+) changed to down/']],
+        ]);
 
         $this->syslogService = new SyslogService(
             $this->em,
             $this->configRepository,
             $this->systemeventsRepository,
             $this->positionRepository,
-            $this->networkSwitchRepository
+            $this->networkSwitchRepository,
+            $logger,
+            $parameterBag
         );
     }
 
@@ -65,9 +78,8 @@ class SyslogServiceTest extends TestCase
 
         $this->configRepository->method('find')->willReturn(null);
 
-        $this->em->expects($this->once())->method('beginTransaction');
-        $this->em->expects($this->once())->method('commit');
         $this->em->expects($this->exactly(2))->method('persist'); // Persist for position and config
+        $this->em->expects($this->exactly(2))->method('flush'); // Flush for position and for batch completion
 
         $processedCount = $this->syslogService->analyzeSyslogEvents();
 
