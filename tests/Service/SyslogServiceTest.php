@@ -32,12 +32,18 @@ class SyslogServiceTest extends TestCase
         $this->networkSwitchRepository = $this->createMock(NetworkSwitchRepository::class);
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $parameterBag = $this->createMock(\Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface::class);
+        $lockFactory = $this->createMock(\Symfony\Component\Lock\LockFactory::class);
+        $lock = $this->createMock(\Symfony\Component\Lock\LockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        $lockFactory->method('createLock')->willReturn($lock);
+
 
         // Mocking ParameterBag
         $parameterBag->method('get')->willReturnMap([
             ['tehou.syslog.batch_size', 1000],
             ['tehou.syslog.max_processing_time', 300],
             ['tehou.syslog.max_errors', 100],
+            ['tehou.syslog.lock_timeout', 300],
             ['tehou.syslog.regex_patterns.connection', ['/LLDP_CREATE_NEIGHBOR:.*?port (GigabitEthernet[\d\/]+).*?port ID is ([\w-]+)/']],
             ['tehou.syslog.regex_patterns.disconnection', ['/PHY_UPDOWN:.*?interface (GigabitEthernet[\d\/]+) changed to down/']],
         ]);
@@ -49,7 +55,8 @@ class SyslogServiceTest extends TestCase
             $this->positionRepository,
             $this->networkSwitchRepository,
             $logger,
-            $parameterBag
+            $parameterBag,
+            $lockFactory
         );
     }
 

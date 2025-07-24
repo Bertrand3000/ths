@@ -6,9 +6,13 @@ use App\Repository\ConfigRepository;
 use App\Repository\NetworkSwitchRepository;
 use App\Repository\PositionRepository;
 use App\Repository\SystemeventsRepository;
+use App\Service\Syslog\Exception\DatabaseConnectionException;
+use App\Service\Syslog\Exception\MalformedMessageException;
+use App\Service\Syslog\Exception\NetworkSwitchNotFoundException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Lock\LockFactory;
 
 /**
  * Service d'analyse des événements syslog avec gestion robuste des erreurs
@@ -25,7 +29,8 @@ class SyslogService
         private readonly PositionRepository $positionRepository,
         private readonly NetworkSwitchRepository $networkSwitchRepository,
         private readonly LoggerInterface $logger,
-        private readonly ParameterBagInterface $parameterBag
+        private readonly ParameterBagInterface $parameterBag,
+        private readonly LockFactory $lockFactory
     ) {
     }
 
@@ -35,6 +40,22 @@ class SyslogService
      * @return int Nombre total d'événements traités
      */
     public function analyzeSyslogEvents(): int
+    {
+        $lock = $this->lockFactory->createLock('syslog-processing', $this->parameterBag->get('tehou.syslog.lock_timeout'));
+
+        if (!$lock->acquire()) {
+            $this->logger->info('Traitement syslog déjà en cours - abandon');
+            return 0;
+        }
+
+        try {
+            return $this->processWithoutLock();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function processWithoutLock(): int
     {
         $batchSize = $this->parameterBag->get('tehou.syslog.batch_size');
         $maxProcessingTime = $this->parameterBag->get('tehou.syslog.max_processing_time');
@@ -83,21 +104,32 @@ class SyslogService
      */
     private function processBatch(array $events): array
     {
+        $this->em->beginTransaction();
         $processed = 0;
         $errors = 0;
 
-        foreach ($events as $event) {
-            $processed++;
-            try {
-                $this->processSyslogMessage($event->getMessage() ?? '', $event->getSyslogtag() ?? '');
-            } catch (\Exception $e) {
-                $this->logger->critical('Erreur critique pendant le traitement d\'un événement syslog', [
-                    'event_id' => $event->getId(),
-                    'message' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-                $errors++;
+        try {
+            foreach ($events as $event) {
+                try {
+                    $this->processSyslogMessage($event->getMessage() ?? '', $event->getSyslogtag() ?? '');
+                    $processed++;
+                } catch (MalformedMessageException | NetworkSwitchNotFoundException $e) {
+                    $this->logger->warning($e->getMessage(), [
+                        'event_id' => $event->getId(),
+                        'exception_class' => get_class($e)
+                    ]);
+                    $errors++;
+                }
             }
+            $this->em->commit();
+        } catch (DatabaseConnectionException $e) {
+            $this->em->rollback();
+            $this->logger->critical('Erreur de base de données, rollback du lot.', ['exception' => $e]);
+            throw $e; // Remonter pour arrêter le traitement global
+        } catch (\Exception $e) {
+            $this->em->rollback();
+            $this->logger->error('Erreur inattendue pendant le traitement du lot, rollback.', ['exception' => $e]);
+            $errors = count($events); // Tout le lot est considéré comme une erreur
         }
 
         return ['processed' => $processed, 'errors' => $errors];
@@ -136,10 +168,7 @@ class SyslogService
         } elseif ($disconnectionData = $this->parseDisconnectionMessage($message)) {
             $this->updatePositionMac($syslogTag, $disconnectionData['port'], null);
         } else {
-            $this->logger->error('Message syslog non reconnu', [
-                'message' => $message,
-                'tag' => $syslogTag,
-            ]);
+            throw new MalformedMessageException("Message syslog non reconnu: '$message'");
         }
     }
 
@@ -191,12 +220,13 @@ class SyslogService
      */
     private function updatePositionMac(string $switchName, string $portName, ?string $mac): void
     {
-        $switch = $this->networkSwitchRepository->findOneBy(['nom' => $switchName]);
-        if (!$switch) {
-            $this->logger->warning('Switch non trouvé dans la base de données', [
-                'switch_name' => $switchName,
-            ]);
-            return;
+        try {
+            $switch = $this->networkSwitchRepository->findOneBy(['nom' => $switchName]);
+            if (!$switch) {
+                throw new NetworkSwitchNotFoundException("Switch '$switchName' non trouvé.");
+            }
+        } catch (\Doctrine\DBAL\Exception $e) {
+            throw new DatabaseConnectionException("Erreur de base de données en cherchant le switch.", 0, $e);
         }
 
         // Extrait le numéro de la prise du nom du port, ex: "GigabitEthernet1/0/21" -> "21"

@@ -18,6 +18,8 @@ class SyslogServiceRobustnessTest extends TestCase
     private $logger;
     private $parameterBag;
     private $systemeventsRepository;
+    private $networkSwitchRepository;
+    private $positionRepository;
 
     protected function setUp(): void
     {
@@ -26,17 +28,22 @@ class SyslogServiceRobustnessTest extends TestCase
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $configRepository = $this->createMock(ConfigRepository::class);
         $this->systemeventsRepository = $this->createMock(SystemeventsRepository::class);
-        $positionRepository = $this->createMock(PositionRepository::class);
-        $networkSwitchRepository = $this->createMock(NetworkSwitchRepository::class);
+        $this->positionRepository = $this->createMock(PositionRepository::class);
+        $this->networkSwitchRepository = $this->createMock(NetworkSwitchRepository::class);
+        $lockFactory = $this->createMock(\Symfony\Component\Lock\LockFactory::class);
+        $lock = $this->createMock(\Symfony\Component\Lock\LockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        $lockFactory->method('createLock')->willReturn($lock);
 
         $this->syslogService = new SyslogService(
             $entityManager,
             $configRepository,
             $this->systemeventsRepository,
-            $positionRepository,
-            $networkSwitchRepository,
+            $this->positionRepository,
+            $this->networkSwitchRepository,
             $this->logger,
-            $this->parameterBag
+            $this->parameterBag,
+            $lockFactory
         );
     }
 
@@ -90,6 +97,7 @@ class SyslogServiceRobustnessTest extends TestCase
             ['tehou.syslog.batch_size', 100],
             ['tehou.syslog.max_processing_time', 300],
             ['tehou.syslog.max_errors', 100],
+            ['tehou.syslog.lock_timeout', 300],
             ['tehou.syslog.regex_patterns.connection', []],
             ['tehou.syslog.regex_patterns.disconnection', []],
         ]);
@@ -97,11 +105,11 @@ class SyslogServiceRobustnessTest extends TestCase
         $this->systemeventsRepository->method('findNewEvents')->willReturn($this->createMockEvents(count($malformedEvents), $malformedEvents));
 
         // On s'attend à ce que les erreurs soient logguées, mais que le service ne plante pas.
-        $this->logger->expects($this->exactly(count($malformedEvents)))->method('error');
+        $this->logger->expects($this->exactly(count($malformedEvents)))->method('warning');
 
         $result = $this->syslogService->analyzeSyslogEvents();
         $this->assertIsInt($result);
-        $this->assertEquals(count($malformedEvents), $result);
+        $this->assertEquals(0, $result);
     }
 
     /**
@@ -116,7 +124,9 @@ class SyslogServiceRobustnessTest extends TestCase
             ['tehou.syslog.batch_size', 1000],
             ['tehou.syslog.max_processing_time', 300],
             ['tehou.syslog.max_errors', 100],
+            ['tehou.syslog.lock_timeout', 300],
             ['tehou.syslog.regex_patterns.connection', ['/port\s+(\w+\/\d+\/\d+).*port\s+ID\s+is\s+([\w-]+)/']],
+            ['tehou.syslog.regex_patterns.disconnection', []],
         ]);
 
         $this->systemeventsRepository->method('findNewEvents')
@@ -128,6 +138,9 @@ class SyslogServiceRobustnessTest extends TestCase
                  $this->createMockEvents(1000, [], 4001),
                  []
              ));
+
+        $this->networkSwitchRepository->method('findOneBy')->willReturn($this->createMock(\App\Entity\NetworkSwitch::class));
+        $this->positionRepository->method('findOneBy')->willReturn($this->createMock(\App\Entity\Position::class));
 
         $startTime = microtime(true);
         $result = $this->syslogService->analyzeSyslogEvents();
