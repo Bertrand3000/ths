@@ -20,4 +20,18 @@ class AgentHistoriqueConnexionRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, AgentHistoriqueConnexion::class);
     }
+
+    /**
+     * @return AgentHistoriqueConnexion[]
+     */
+    public function findByDateRange(\DateTimeInterface $start, \DateTimeInterface $end): array
+    {
+        return $this->createQueryBuilder('h')
+            ->andWhere('h.dateconnexion BETWEEN :start AND :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->orderBy('h.dateconnexion', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

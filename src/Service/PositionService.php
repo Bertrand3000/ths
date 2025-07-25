@@ -4,9 +4,11 @@ namespace App\Service;
 
 use App\Entity\Agent;
 use App\Entity\AgentConnexion;
+use App\Entity\AgentHistoriqueConnexion;
 use App\Entity\AgentPosition;
 use App\Entity\Enum\TypeConnexion;
 use App\Repository\AgentConnexionRepository;
+use App\Repository\AgentHistoriqueConnexionRepository;
 use App\Repository\AgentPositionRepository;
 use App\Repository\AgentRepository;
 use App\Repository\PositionRepository;
@@ -23,6 +25,7 @@ class PositionService
         private readonly AgentRepository $agentRepository,
         private readonly AgentConnexionRepository $agentConnexionRepository,
         private readonly AgentPositionRepository $agentPositionRepository,
+        private readonly AgentHistoriqueConnexionRepository $agentHistoriqueConnexionRepository,
         private readonly PositionRepository $positionRepository,
         private readonly SyslogService $syslogService,
         private readonly LoggerInterface $logger,
@@ -60,70 +63,115 @@ class PositionService
                 return;
             }
 
-            // Gérer agent_connexion
-            $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]) ?? new AgentConnexion();
-            $connexion->setAgent($agent);
-            $connexion->setType($typeConnexion);
-            $connexion->setIp($ip);
-            $connexion->setMac($mac);
-            if ($connexion->getId() === null) {
-                $connexion->setDateconnexion(new \DateTime());
+            // Gérer agent_connexion (pour compatibilité client lourd)
+            $this->updateAgentConnexion($agent, $typeConnexion, $ip, $mac);
+
+            $agentPosition = $this->agentPositionRepository->find($agent->getNumagent());
+            $positionTrouvee = ($typeConnexion === TypeConnexion::SITE) ? $this->findPositionForSite($mac, $numeroAgent) : null;
+
+            // Scénario 1: L'agent se connecte en Télétravail
+            if ($typeConnexion === TypeConnexion::TELETRAVAIL) {
+                if ($agentPosition) {
+                    $this->finaliserHistorique($agentPosition, new \DateTime(), 'Télétravail');
+                    $this->em->remove($agentPosition);
+                }
             }
-            $connexion->setDateactualisation(new \DateTime());
-            $this->em->persist($connexion);
+            // Scénario 2: L'agent est sur site et une position est trouvée
+            elseif ($positionTrouvee) {
+                if ($agentPosition && $agentPosition->getPosition() !== $positionTrouvee) {
+                    // L'agent a changé de place
+                    $this->finaliserHistorique($agentPosition, new \DateTime(), 'Changement de poste');
+                    $this->em->remove($agentPosition); // On supprime l'ancienne pour en créer une nouvelle
+                    $this->em->flush(); // On s'assure que la suppression est faite avant la création
+                    $agentPosition = null; // Réinitialiser pour la création
+                }
 
-            // Gérer agent_position
-            $position = $this->agentPositionRepository->find($agent->getNumagent());
+                if ($agentPosition === null) {
+                    // Nouvelle position pour l'agent
+                    $agentPosition = new AgentPosition();
+                    $agentPosition->setAgent($agent);
+                    $agentPosition->setPosition($positionTrouvee);
+                    $agentPosition->setJour(new \DateTime());
+                    $agentPosition->setDateconnexion(new \DateTime());
+                    $this->creerHistorique($agentPosition);
+                }
 
-            switch ($typeConnexion) {
-                case TypeConnexion::TELETRAVAIL:
-                    if ($position) {
-                        $this->em->remove($position);
-                    }
-                    break;
-
-                case TypeConnexion::SITE:
-                    try {
-                        // Pour le mode SITE, nous devons trouver la position via le syslog
-                        $this->syslogService->analyzeSyslogEvents();
-                    } catch (\Exception $e) {
-                        $this->logger->critical(
-                            "Erreur critique lors de l'analyse des événements syslog pour l'agent {agent}: {message}",
-                            ['agent' => $numeroAgent, 'message' => $e->getMessage()]
-                        );
-                        // On arrête le traitement pour cet agent pour ne pas assigner une mauvaise position
-                        return;
-                    }
-                    // La position devrait maintenant être mise à jour avec la bonne MAC
-                    // Nous devons trouver la position par MAC
-                    $positionTrouvee = $this->positionRepository->findOneBy(['mac' => $mac]);
-
-                    if ($positionTrouvee) {
-                        if ($position === null) {
-                            $position = new AgentPosition();
-                            $position->setAgent($agent);
-                            $position->setJour(new \DateTime());
-                            $position->setDateconnexion(new \DateTime());
-                        }
-                        $position->setPosition($positionTrouvee);
-                        $this->em->persist($position);
-                    } else {
-                        $this->logger->warning("Impossible de trouver une position pour la MAC $mac pour l'agent $numeroAgent");
-                        // Si on ne trouve pas de position, on supprime l'ancienne au cas où
-                        if ($position) {
-                            $this->em->remove($position);
-                        }
-                    }
-                    break;
-
-                case TypeConnexion::WIFI:
-                    // Ne rien faire sur la position
-                    break;
+                $agentPosition->updateExpiration();
+                $this->em->persist($agentPosition);
+            }
+            // Scénario 3: Agent sur site mais pas de position trouvée (ou connexion WIFI)
+            else {
+                // Si l'agent avait une position, on ne fait rien pour la conserver (cas du WIFI ou déconnexion temporaire)
+                // Si la position expire, le cron de nettoyage s'en occupera.
+                // On met juste à jour sa date d'expiration pour le maintenir actif
+                if ($agentPosition) {
+                    $agentPosition->updateExpiration();
+                    $this->em->persist($agentPosition);
+                }
             }
 
             $this->em->flush();
         } finally {
             $lock->release();
+        }
+    }
+
+    private function updateAgentConnexion(Agent $agent, TypeConnexion $type, string $ip, string $mac): void
+    {
+        $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]) ?? new AgentConnexion();
+        $connexion->setAgent($agent);
+        $connexion->setType($type);
+        $connexion->setIp($ip);
+        $connexion->setMac($mac);
+        if ($connexion->getId() === null) {
+            $connexion->setDateconnexion(new \DateTime());
+        }
+        $connexion->setDateactualisation(new \DateTime());
+        $this->em->persist($connexion);
+    }
+
+    private function findPositionForSite(string $mac, string $numeroAgent): ?\App\Entity\Position
+    {
+        try {
+            $this->syslogService->analyzeSyslogEvents();
+            return $this->positionRepository->findOneBy(['mac' => $mac]);
+        } catch (\Exception $e) {
+            $this->logger->critical(
+                "Erreur critique lors de l'analyse des événements syslog pour l'agent {agent}: {message}",
+                ['agent' => $numeroAgent, 'message' => $e->getMessage()]
+            );
+            return null;
+        }
+    }
+
+    private function creerHistorique(AgentPosition $agentPosition): void
+    {
+        $historique = new AgentHistoriqueConnexion();
+        $historique->setAgent($agentPosition->getAgent());
+        $historique->setPosition($agentPosition->getPosition());
+        $historique->setJour($agentPosition->getJour());
+        $historique->setDateconnexion($agentPosition->getDateconnexion());
+        $this->em->persist($historique);
+    }
+
+    private function finaliserHistorique(AgentPosition $agentPosition, \DateTimeInterface $dateDeconnexion, string $motif): void
+    {
+        $historique = $this->agentHistoriqueConnexionRepository->findOneBy([
+            'agent' => $agentPosition->getAgent(),
+            'datedeconnexion' => null
+        ], ['dateconnexion' => 'DESC']);
+
+        if ($historique) {
+            $historique->setDatedeconnexion($dateDeconnexion);
+            $this->em->persist($historique);
+            $this->logger->info(
+                "Historique finalisé pour l'agent {agent} à la position {position}. Motif: {motif}",
+                [
+                    'agent' => $agentPosition->getAgent()->getNumagent(),
+                    'position' => $agentPosition->getPosition()->getId(),
+                    'motif' => $motif
+                ]
+            );
         }
     }
 
@@ -196,6 +244,7 @@ class PositionService
             return;
         }
 
+        // On garde la compatibilité avec l'ancienne table pour le client lourd
         $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]);
         if ($connexion) {
             $this->em->remove($connexion);
@@ -203,6 +252,7 @@ class PositionService
 
         $position = $this->agentPositionRepository->find($agent->getNumagent());
         if ($position) {
+            $this->finaliserHistorique($position, new \DateTime(), 'Déconnexion manuelle');
             $this->em->remove($position);
         }
 
@@ -230,30 +280,29 @@ class PositionService
      * actualisés depuis plus de `CONNECTION_TIMEOUT`. Elle supprime également les
      * enregistrements `agent_position` associés.
      */
-    public function nettoyerConnexions(): void
+    /**
+     * Nettoie les positions expirées.
+     *
+     * @return int Le nombre de positions nettoyées.
+     */
+    public function cleanExpiredPositions(): int
     {
-        $timeout = new \DateTime();
-        $timeout->modify('-' . self::CONNECTION_TIMEOUT);
+        $expiredPositions = $this->agentPositionRepository->findExpiredPositions();
+        $count = count($expiredPositions);
 
-        $expiredConnexions = $this->agentConnexionRepository->findExpiredConnections($timeout);
-
-        if (count($expiredConnexions) === 0) {
-            return;
+        if ($count === 0) {
+            return 0;
         }
 
-        $this->logger->info(sprintf('Nettoyage de %d connexions expirées.', count($expiredConnexions)));
+        $this->logger->info(sprintf('Nettoyage de %d positions expirées.', $count));
 
-        foreach ($expiredConnexions as $connexion) {
-            $agent = $connexion->getAgent();
-            if ($agent) {
-                $position = $this->agentPositionRepository->find($agent->getNumagent());
-                if ($position) {
-                    $this->em->remove($position);
-                }
-            }
-            $this->em->remove($connexion);
+        foreach ($expiredPositions as $position) {
+            $this->finaliserHistorique($position, $position->getDateexpiration(), 'Expiration automatique');
+            $this->em->remove($position);
         }
 
         $this->em->flush();
+
+        return $count;
     }
 }

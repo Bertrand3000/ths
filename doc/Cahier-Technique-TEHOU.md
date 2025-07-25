@@ -161,6 +161,13 @@ Response: {"status": "ok", "position_id": 123}
 
 POST /api/logoff                        # Envoyer à la déconnexion
 POST /api/sleep                         # Envoyer à la mise en veille
+
+#### 4.2.2 Historique des positions
+```
+GET /api/historique/agent/{numagent}     # Historique complet d'un agent
+GET /api/historique/position/{id}        # Historique complet d'une position
+GET /api/historique/dates?start=...&end=... # Historique sur une période donnée (format YYYY-MM-DD)
+```
 ```
 
 #### 4.2.2 Alertes silencieuses
@@ -280,7 +287,7 @@ CREATE TABLE agent_position (
     idposition INTEGER NOT NULL,
     jour DATE DEFAULT CURRENT_DATE,
     dateconnexion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    dateexpiration TIMESTAMP NULL,
+    dateexpiration TIMESTAMP NULL,                                      -- Mis à jour à +8h à chaque actualisation
     FOREIGN KEY (numagent) REFERENCES agent(numagent) ON DELETE CASCADE,
     FOREIGN KEY (idposition) REFERENCES position(id) ON DELETE CASCADE
 );
