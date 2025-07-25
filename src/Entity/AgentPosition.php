@@ -10,12 +10,12 @@ use Doctrine\ORM\Mapping as ORM;
 class AgentPosition
 {
     #[ORM\Id]
-    #[ORM\OneToOne(inversedBy: 'agentPosition', cascade: ['persist', 'remove'])]
+    #[ORM\OneToOne(targetEntity: Agent::class)]
     #[ORM\JoinColumn(name: 'numagent', referencedColumnName: 'numagent', nullable: false)]
     private ?Agent $agent = null;
 
-    #[ORM\OneToOne(inversedBy: 'agentPosition', cascade: ['persist', 'remove'])]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'idposition', referencedColumnName: 'id', nullable: false)]
     private ?Position $position = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
@@ -26,6 +26,14 @@ class AgentPosition
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $dateexpiration = null;
+
+    /**
+     * Met à jour la date d'expiration à 8 heures à partir de maintenant.
+     */
+    public function updateExpiration(): void
+    {
+        $this->dateexpiration = new \DateTime('+8 hours');
+    }
 
     public function getAgent(): ?Agent
     {

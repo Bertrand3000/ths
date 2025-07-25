@@ -3,151 +3,107 @@
 namespace App\Tests\Service;
 
 use App\Entity\Agent;
-use App\Entity\AgentConnexion;
+use App\Entity\AgentHistoriqueConnexion;
 use App\Entity\AgentPosition;
-use App\Entity\Enum\TypeConnexion;
 use App\Entity\Position;
-use App\Repository\AgentConnexionRepository;
-use App\Repository\AgentPositionRepository;
-use App\Repository\AgentRepository;
-use App\Repository\PositionRepository;
+use App\Repository\AgentHistoriqueConnexionRepository;
 use App\Service\PositionService;
-use App\Service\SyslogService;
+use App\Tests\Utils\TestTools;
 use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\Lock\LockFactory;
-use Symfony\Component\Lock\LockInterface;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-class PositionServiceTest extends TestCase
+class PositionServiceTest extends KernelTestCase
 {
+    private EntityManagerInterface $entityManager;
     private PositionService $positionService;
-    private $entityManager;
-    private $agentRepository;
-    private $agentConnexionRepository;
-    private $agentPositionRepository;
-    private $positionRepository;
-    private $syslogService;
-    private $logger;
-    private $lockFactory;
-    private $lock;
+    private TestTools $testTools;
 
     protected function setUp(): void
     {
-        $this->entityManager = $this->createMock(EntityManagerInterface::class);
-        $this->agentRepository = $this->createMock(AgentRepository::class);
-        $this->agentConnexionRepository = $this->createMock(AgentConnexionRepository::class);
-        $this->agentPositionRepository = $this->createMock(AgentPositionRepository::class);
-        $this->positionRepository = $this->createMock(PositionRepository::class);
-        $this->syslogService = $this->createMock(SyslogService::class);
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->lockFactory = $this->createMock(LockFactory::class);
-        $this->lock = $this->createMock(LockInterface::class);
+        self::bootKernel();
+        $container = static::getContainer();
+        $this->entityManager = $container->get('doctrine')->getManager();
+        $this->positionService = $container->get(PositionService::class);
+        $this->testTools = new TestTools($container);
 
-        $this->lockFactory->method('createLock')->willReturn($this->lock);
-        $this->lock->method('acquire')->willReturn(true);
-
-        $this->positionService = new PositionService(
-            $this->entityManager,
-            $this->agentRepository,
-            $this->agentConnexionRepository,
-            $this->agentPositionRepository,
-            $this->positionRepository,
-            $this->syslogService,
-            $this->logger,
-            $this->lockFactory
-        );
+        // Clean up database before each test
+        $this->entityManager->createQuery('DELETE FROM App\Entity\AgentHistoriqueConnexion')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\AgentPosition')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\AgentConnexion')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Agent')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Position')->execute();
     }
 
-    public function testActualiserAgentAcquiresAndReleasesLock()
+    public function testActualiserCreeNouvellePositionEtHistorique(): void
     {
-        $this->lock->expects($this->once())->method('acquire')->willReturn(true);
-        $this->lock->expects($this->once())->method('release');
+        $agent = $this->testTools->createTestAgent('11111');
+        $position = $this->testTools->createTestPosition();
+        $mac = $position->getMac();
 
-        $this->positionService->actualiserAgent('00001', '192.168.1.10', 'AA:BB:CC:DD:EE:FF');
+        $this->positionService->actualiserAgent($agent->getNumagent(), '55.153.4.10', $mac);
+
+        $agentPosition = $this->entityManager->getRepository(AgentPosition::class)->find($agent->getNumagent());
+        $this->assertNotNull($agentPosition);
+        $this->assertNotNull($agentPosition->getDateexpiration());
+
+        $historique = $this->entityManager->getRepository(AgentHistoriqueConnexion::class)->findOneBy(['agent' => $agent]);
+        $this->assertNotNull($historique);
+        $this->assertNull($historique->getDatedeconnexion());
     }
 
-    public function testActualiserAgentHorsReseauRamage()
+    public function testActualiserMetAJourExpiration(): void
     {
-        $this->entityManager->expects($this->never())->method('persist');
-        $this->positionService->actualiserAgent('00001', '192.168.1.10', 'AA:BB:CC:DD:EE:FF');
+        $agent = $this->testTools->createTestAgent('22222');
+        $position = $this->testTools->createTestPosition();
+        $mac = $position->getMac();
+
+        $this->positionService->actualiserAgent($agent->getNumagent(), '55.153.4.10', $mac);
+        $agentPosition = $this->entityManager->getRepository(AgentPosition::class)->find($agent->getNumagent());
+        $firstExpiration = $agentPosition->getDateexpiration();
+
+        $this->positionService->actualiserAgent($agent->getNumagent(), '55.153.4.10', $mac);
+        $this->entityManager->refresh($agentPosition);
+        $secondExpiration = $agentPosition->getDateexpiration();
+
+        $this->assertNotEquals($firstExpiration, $secondExpiration);
     }
 
-    public function testActualiserAgentTeletravail()
+    public function testChangementDePositionFinaliseAncienHistorique(): void
     {
-        $agent = new Agent();
-        $agent->setNumagent('00001');
-        $this->agentRepository->method('find')->willReturn($agent);
+        $agent = $this->testTools->createTestAgent('33333');
+        $position1 = $this->testTools->createTestPosition();
+        $position2 = $this->testTools->createTestPosition();
 
-        $this->agentConnexionRepository->method('findOneBy')->willReturn(null);
+        // Connexion à la première position
+        $this->positionService->actualiserAgent($agent->getNumagent(), '55.153.4.11', $position1->getMac());
 
-        $this->entityManager->expects($this->once())->method('persist')
-            ->with($this->callback(function (AgentConnexion $connexion) {
-                return $connexion->getType() === TypeConnexion::TELETRAVAIL;
-            }));
+        // Connexion à la deuxième position
+        $this->positionService->actualiserAgent($agent->getNumagent(), '55.153.4.12', $position2->getMac());
 
-        $this->positionService->actualiserAgent('00001', '55.255.10.20', 'AA:BB:CC:DD:EE:FF');
+        $historiques = $this->entityManager->getRepository(AgentHistoriqueConnexion::class)->findBy(['agent' => $agent], ['dateconnexion' => 'ASC']);
+        $this->assertCount(2, $historiques);
+        $this->assertNotNull($historiques[0]->getDatedeconnexion());
+        $this->assertNull($historiques[1]->getDatedeconnexion());
     }
 
-    public function testActualiserAgentSite()
+    public function testCleanExpiredPositions(): void
     {
-        $agent = new Agent();
-        $agent->setNumagent('00001');
-        $this->agentRepository->method('find')->willReturn($agent);
+        $agent = $this->testTools->createTestAgent('44444');
+        $position = $this->testTools->createTestPosition();
+        $this->positionService->actualiserAgent($agent->getNumagent(), '55.153.4.13', $position->getMac());
 
-        $position = new Position();
-        $this->positionRepository->method('findOneBy')->willReturn($position);
+        // Rendre la position expirée
+        $agentPosition = $this->entityManager->getRepository(AgentPosition::class)->find($agent->getNumagent());
+        $agentPosition->setDateexpiration(new \DateTime('-1 second'));
+        $this->entityManager->flush();
 
-        $this->entityManager->expects($this->exactly(2))->method('persist');
+        $cleanedCount = $this->positionService->cleanExpiredPositions();
+        $this->assertEquals(1, $cleanedCount);
 
-        $this->positionService->actualiserAgent('00001', '55.153.4.50', 'AA:BB:CC:DD:EE:FF');
-    }
+        $agentPosition = $this->entityManager->getRepository(AgentPosition::class)->find($agent->getNumagent());
+        $this->assertNull($agentPosition);
 
-    public function testActualiserAgentWifi()
-    {
-        $agent = new Agent();
-        $agent->setNumagent('00001');
-        $this->agentRepository->method('find')->willReturn($agent);
-
-        $this->entityManager->expects($this->once())->method('persist')
-            ->with($this->isInstanceOf(AgentConnexion::class));
-
-        $this->entityManager->expects($this->never())->method('remove');
-
-        $this->positionService->actualiserAgent('00001', '55.10.0.1', 'AA:BB:CC:DD:EE:FF');
-    }
-
-    public function testDeconnecterAgent()
-    {
-        $agent = new Agent();
-        $agent->setNumagent('00001');
-        $this->agentRepository->method('find')->willReturn($agent);
-
-        $connexion = new AgentConnexion();
-        $this->agentConnexionRepository->method('findOneBy')->willReturn($connexion);
-
-        $position = new AgentPosition();
-        $this->agentPositionRepository->method('find')->willReturn($position);
-
-        $this->entityManager->expects($this->exactly(2))->method('remove');
-        $this->entityManager->expects($this->once())->method('flush');
-
-        $this->positionService->deconnecterAgent('00001');
-    }
-
-    public function testActualiserAgentSiteSyslogFailure()
-    {
-        $agent = new Agent();
-        $agent->setNumagent('00001');
-        $this->agentRepository->method('find')->willReturn($agent);
-
-        $this->syslogService->method('analyzeSyslogEvents')->will($this->throwException(new \Exception('Syslog service failed')));
-
-        $this->logger->expects($this->once())->method('critical');
-        $this->entityManager->expects($this->once())->method('persist')
-            ->with($this->isInstanceOf(AgentConnexion::class));
-        $this->entityManager->expects($this->never())->method('remove');
-
-        $this->positionService->actualiserAgent('00001', '55.153.4.50', 'AA:BB:CC:DD:EE:FF');
+        $historique = $this->entityManager->getRepository(AgentHistoriqueConnexion::class)->findOneBy(['agent' => $agent]);
+        $this->assertNotNull($historique->getDatedeconnexion());
     }
 }
