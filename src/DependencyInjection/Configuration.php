@@ -13,6 +13,12 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
+                ->arrayNode('debug')
+                    ->children()
+                        ->booleanNode('enabled')->defaultFalse()->end()
+                        ->scalarNode('token')->defaultValue('')->end()
+                    ->end()
+                ->end()
                 ->arrayNode('syslog')
                     ->children()
                         ->integerNode('batch_size')->defaultValue(1000)->end()

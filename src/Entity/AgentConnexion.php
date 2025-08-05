@@ -34,6 +34,9 @@ class AgentConnexion
     #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ['default' => 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeInterface $dateactualisation = null;
 
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $status = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -107,6 +110,18 @@ class AgentConnexion
     public function setDateactualisation(\DateTimeInterface $dateactualisation): static
     {
         $this->dateactualisation = $dateactualisation;
+
+        return $this;
+    }
+
+    public function getStatus(): ?string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(?string $status): static
+    {
+        $this->status = $status;
 
         return $this;
     }

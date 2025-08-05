@@ -1,4 +1,7 @@
 tehou:
+    debug:
+        enabled: true
+        token: "DEBUG_TOKEN_CHANGE_IN_PROD"
     syslog:
         batch_size: 1000
         max_processing_time: 300 # 5 minutes max
