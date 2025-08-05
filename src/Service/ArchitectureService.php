@@ -702,4 +702,111 @@ class ArchitectureService
         return true;
     }
     //endregion
+
+    //region CRUD Agent
+    /**
+     * Crée un nouvel agent.
+     * @param array $data
+     * @return Agent
+     */
+    public function addAgent(array $data): Agent
+    {
+        if (empty($data['numagent']) || empty($data['nom']) || empty($data['prenom']) || empty($data['service_id'])) {
+            throw new \InvalidArgumentException("Missing required data for new agent (numagent, nom, prenom, service_id).");
+        }
+
+        $service = $this->em->getRepository(Service::class)->find($data['service_id']);
+        if (!$service) {
+            throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+        }
+
+        if ($this->em->getRepository(Agent::class)->find($data['numagent'])) {
+            throw new \InvalidArgumentException("Agent with numagent {$data['numagent']} already exists.");
+        }
+
+        $agent = new Agent();
+        $agent->setNumagent($data['numagent']);
+        $agent->setNom($data['nom']);
+        $agent->setPrenom($data['prenom']);
+        $agent->setService($service);
+        $agent->setCivilite($data['civilite'] ?? 'M.');
+
+        $this->em->persist($agent);
+        $this->em->flush();
+
+        return $agent;
+    }
+
+    /**
+     * Supprime un agent.
+     * @param string $numagent
+     * @return bool
+     */
+    public function deleteAgent(string $numagent): bool
+    {
+        $agent = $this->em->getRepository(Agent::class)->find($numagent);
+
+        if (!$agent) {
+            // It's not an error to try to delete something that doesn't exist
+            return true;
+        }
+
+        // Before deleting agent, we need to delete dependencies
+        $agentPosition = $this->em->getRepository(AgentPosition::class)->find($numagent);
+        if ($agentPosition) {
+            $this->em->remove($agentPosition);
+        }
+
+        $agentConnexions = $this->em->getRepository(AgentConnexion::class)->findBy(['agent' => $agent]);
+        foreach ($agentConnexions as $connexion) {
+            $this->em->remove($connexion);
+        }
+
+        $this->em->remove($agent);
+        $this->em->flush();
+
+        return true;
+    }
+    //endregion
+
+    //region Test Data
+    /**
+     * Crée une position de test simple.
+     * @return Position
+     */
+    public function createTestPosition(): Position
+    {
+        $etage = $this->em->getRepository(Etage::class)->findOneBy([]);
+        if (!$etage) {
+            throw new \RuntimeException("Aucun étage trouvé pour créer une position de test.");
+        }
+
+        $service = $this->em->getRepository(Service::class)->findOneBy(['etage' => $etage]);
+        if (!$service) {
+            throw new \RuntimeException("Aucun service trouvé pour créer une position de test.");
+        }
+
+        $switch = $this->em->getRepository(NetworkSwitch::class)->findOneBy(['etage' => $etage]);
+        if (!$switch) {
+            throw new \RuntimeException("Aucun switch trouvé pour créer une position de test.");
+        }
+
+        $position = new Position();
+        $position->setEtage($etage);
+        $position->setService($service);
+        $position->setNetworkSwitch($switch);
+        $position->setCoordx(rand(1,100));
+        $position->setCoordy(rand(1,100));
+        $position->setPrise('T'.rand(1,100));
+        $position->setMac($this->generateRandomMac());
+        $position->setType('Echange');
+        $position->setSanctuaire(false);
+        $position->setFlex(true);
+
+        $this->em->persist($position);
+        $this->em->flush();
+
+        return $position;
+    }
+    //endregion
 }

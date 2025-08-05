@@ -39,8 +39,9 @@ class PositionService
      * @param string $numeroAgent
      * @param string $ip
      * @param string $mac
+     * @param string $status
      */
-    public function actualiserAgent(string $numeroAgent, string $ip, string $mac): void
+    public function actualiserAgent(string $numeroAgent, string $ip, string $mac, string $status = 'active'): void
     {
         $lock = $this->lockFactory->createLock('agent-'.$numeroAgent);
 
@@ -64,7 +65,7 @@ class PositionService
             }
 
             // Gérer agent_connexion (pour compatibilité client lourd)
-            $this->updateAgentConnexion($agent, $typeConnexion, $ip, $mac);
+            $this->updateAgentConnexion($agent, $typeConnexion, $ip, $mac, $status);
 
             $agentPosition = $this->agentPositionRepository->find($agent->getNumagent());
             $positionTrouvee = ($typeConnexion === TypeConnexion::SITE) ? $this->findPositionForSite($mac, $numeroAgent) : null;
@@ -116,13 +117,14 @@ class PositionService
         }
     }
 
-    private function updateAgentConnexion(Agent $agent, TypeConnexion $type, string $ip, string $mac): void
+    private function updateAgentConnexion(Agent $agent, TypeConnexion $type, string $ip, string $mac, string $status): void
     {
         $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]) ?? new AgentConnexion();
         $connexion->setAgent($agent);
         $connexion->setType($type);
         $connexion->setIp($ip);
         $connexion->setMac($mac);
+        $connexion->setStatus($status);
         if ($connexion->getId() === null) {
             $connexion->setDateconnexion(new \DateTime());
         }
@@ -244,10 +246,10 @@ class PositionService
             return;
         }
 
-        // On garde la compatibilité avec l'ancienne table pour le client lourd
         $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]);
         if ($connexion) {
-            $this->em->remove($connexion);
+            $connexion->setStatus('logout');
+            $this->em->persist($connexion);
         }
 
         $position = $this->agentPositionRepository->find($agent->getNumagent());
@@ -267,9 +269,21 @@ class PositionService
      */
     public function veilleAgent(string $numeroAgent): void
     {
-        // TODO: Implémenter la logique de mise en veille.
-        // Pour l'instant, cette fonction ne fait rien.
-        $this->logger->info("Mise en veille de l'agent $numeroAgent. Aucune action effectuée pour le moment.");
+        $agent = $this->agentRepository->find($numeroAgent);
+        if (!$agent) {
+            $this->logger->warning("Tentative de mise en veille d'un agent non trouvé: $numeroAgent");
+            return;
+        }
+
+        $connexion = $this->agentConnexionRepository->findOneBy(['agent' => $agent]);
+        if ($connexion) {
+            $connexion->setStatus('sleep');
+            $this->em->persist($connexion);
+            $this->em->flush();
+            $this->logger->info("Agent $numeroAgent mis en veille.");
+        } else {
+            $this->logger->warning("Aucune connexion active trouvée pour l'agent $numeroAgent lors de la mise en veille.");
+        }
     }
 
 

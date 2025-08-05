@@ -17,6 +17,11 @@ class TehouExtension extends Extension
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
+        // Set debug parameters
+        $container->setParameter('tehou.debug.enabled', $config['debug']['enabled']);
+        $container->setParameter('tehou.debug.token', $config['debug']['token']);
+
+        // Set syslog parameters
         $container->setParameter('tehou.syslog.batch_size', $config['syslog']['batch_size']);
         $container->setParameter('tehou.syslog.max_processing_time', $config['syslog']['max_processing_time']);
         $container->setParameter('tehou.syslog.max_errors', $config['syslog']['max_errors']);
