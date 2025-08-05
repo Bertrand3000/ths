@@ -1,0 +1,92 @@
+{% extends 'dashboard_base.html.twig' %}
+
+{% block title %}Dashboard - {{ etage.nom }}{% endblock %}
+
+{% block stylesheets %}
+    <style>
+        .etage-container {
+            position: relative;
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+        }
+
+        .etage-container img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .service-overlay {
+            position: absolute;
+            border: 2px solid #fff;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+            padding: 5px;
+            box-sizing: border-box;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .service-overlay .service-name {
+            font-size: 1.2vw; /* Responsive font size */
+        }
+
+        .service-overlay .service-rate {
+            font-size: 1vw; /* Responsive font size */
+        }
+
+        .bg-green { background-color: rgba(0, 128, 0, 0.7); }
+        .bg-orange { background-color: rgba(255, 165, 0, 0.7); }
+        .bg-red { background-color: rgba(255, 0, 0, 0.7); }
+        .bg-black { background-color: rgba(0, 0, 0, 0.8); }
+        .bg-grey { background-color: rgba(128, 128, 128, 0.7); }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <a href="{{ path('dashboard_index') }}" class="btn btn-primary mb-3">Retour à la sélection</a>
+    <h1 class="mb-4">Dashboard - {{ etage.site.nom }} / {{ etage.nom }}</h1>
+
+    <div class="etage-container">
+        <img src="/uploads/plans/{{ etage.arriereplan }}" alt="Plan de l'étage {{ etage.nom }}"
+             onerror="this.onerror=null;this.src='/uploads/plans/default.png';">
+
+        {% for data in servicesData %}
+            {% if data.boundingBox and etage.largeur > 0 and etage.hauteur > 0 %}
+                {% set box = data.boundingBox %}
+                {% set stats = data.stats %}
+                {% set service = data.service %}
+
+                {# Calcul des positions en pourcentage pour la responsivité #}
+                {% set left = (box.x / etage.largeur) * 100 %}
+                {% set top = (box.y / etage.hauteur) * 100 %}
+                {% set width = (box.width / etage.largeur) * 100 %}
+                {% set height = (box.height / etage.hauteur) * 100 %}
+
+                <div class="service-overlay bg-{{ stats.color }}"
+                     style="left: {{ left }}%; top: {{ top }}%; width: {{ width }}%; height: {{ height }}%;"
+                     title="{{ service.nom }} - {{ stats.occupied }} / {{ stats.total }} postes occupés">
+
+                    <span class="service-name">{{ service.nom }}</span>
+                    <span class="service-rate">{{ stats.rate }}%</span>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+    // Ajout de l'auto-refresh via JavaScript pour être plus propre que la balise meta
+    setTimeout(function(){
+       window.location.reload(1);
+    }, 30000);
+</script>
+{% endblock %}
