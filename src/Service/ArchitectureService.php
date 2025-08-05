@@ -9,6 +9,7 @@ use App\Entity\NetworkSwitch;
 use App\Entity\Position;
 use App\Entity\Service;
 use App\Entity\Site;
+use App\Repository\AgentPositionRepository;
 use App\Repository\SiteRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -47,9 +48,82 @@ class ArchitectureService
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly SiteRepository $siteRepository,
+        private readonly AgentPositionRepository $agentPositionRepository,
         #[Autowire('%kernel.project_dir%/src/Data/noms.txt')] private readonly string $nomsFile,
         #[Autowire('%kernel.project_dir%/src/Data/prenoms.txt')] private readonly string $prenomsFile
     ) {
+    }
+
+    /**
+     * Calcule le rectangle englobant pour un service sur un étage donné.
+     * @param Service $service
+     * @return array{x: int, y: int, width: int, height: int}|null
+     */
+    public function getServiceBoundingBox(Service $service): ?array
+    {
+        $positions = $service->getPositions()->toArray();
+
+        if (empty($positions)) {
+            return null;
+        }
+
+        $minX = PHP_INT_MAX;
+        $minY = PHP_INT_MAX;
+        $maxX = PHP_INT_MIN;
+        $maxY = PHP_INT_MIN;
+
+        foreach ($positions as $position) {
+            $minX = min($minX, $position->getCoordx());
+            $minY = min($minY, $position->getCoordy());
+            $maxX = max($maxX, $position->getCoordx());
+            $maxY = max($maxY, $position->getCoordy());
+        }
+
+        $padding = 10; // Marge de 10 pixels
+
+        return [
+            'x' => $minX - $padding,
+            'y' => $minY - $padding,
+            'width' => ($maxX - $minX) + (2 * $padding),
+            'height' => ($maxY - $minY) + (2 * $padding),
+        ];
+    }
+
+    /**
+     * Calcule le taux d'occupation d'un service.
+     * @param Service $service
+     * @return array{total: int, occupied: int, rate: float, color: string}
+     */
+    public function getServiceOccupancyStats(Service $service): array
+    {
+        $positions = $service->getPositions()->toArray();
+        $total = count($positions);
+
+        if ($total === 0) {
+            return ['total' => 0, 'occupied' => 0, 'rate' => 0.0, 'color' => 'grey'];
+        }
+
+        $positionIds = array_map(fn($p) => $p->getId(), $positions);
+        $occupiedCount = $this->agentPositionRepository->count(['position' => $positionIds]);
+
+        $rate = ($occupiedCount / $total) * 100;
+
+        if ($rate >= 100) {
+            $color = 'black';
+        } elseif ($rate >= 80) {
+            $color = 'red';
+        } elseif ($rate >= 50) {
+            $color = 'orange';
+        } else {
+            $color = 'green';
+        }
+
+        return [
+            'total' => $total,
+            'occupied' => $occupiedCount,
+            'rate' => round($rate, 2),
+            'color' => $color,
+        ];
     }
 
     /**

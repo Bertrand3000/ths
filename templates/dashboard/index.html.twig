@@ -1,0 +1,26 @@
+{% extends 'dashboard_base.html.twig' %}
+
+{% block title %}Dashboard - Sélection de l'étage{% endblock %}
+
+{% block body %}
+    <h1 class="mb-4">Sélectionnez un étage</h1>
+
+    {% for siteNom, etages in etagesBySite %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>{{ siteNom }}</h2>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for etage in etages %}
+                    <a href="{{ path('dashboard_etage', {'id': etage.id}) }}" class="list-group-item list-group-item-action">
+                        {{ etage.nom }}
+                    </a>
+                {% else %}
+                    <div class="list-group-item">Aucun étage pour ce site.</div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-warning">Aucun site trouvé.</div>
+    {% endfor %}
+{% endblock %}
