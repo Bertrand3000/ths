@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Téhou - Recherche{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Système de Recherche TEHOU</h1>
+
+    <div class="list-group">
+        <a href="{{ path('search_agent') }}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">1. Rechercher un agent</h5>
+            <p class="mb-1">Trouver la position actuelle d'un agent par son nom ou son numéro.</p>
+        </a>
+        <a href="{{ path('search_places_libres') }}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">2. Rechercher des places libres</h5>
+            <p class="mb-1">Lister les positions disponibles avec des filtres par étage, service ou type.</p>
+        </a>
+        <a href="{{ path('search_service') }}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">3. Consulter un service</h5>
+            <p class="mb-1">Voir tous les agents présents dans un service et les statistiques d'occupation.</p>
+        </a>
+        <a href="{{ path('search_etage') }}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">4. Consulter un étage</h5>
+            <p class="mb-1">Obtenir une vue d'ensemble de l'occupation d'un étage, service par service.</p>
+        </a>
+    </div>
+</div>
+{% endblock %}

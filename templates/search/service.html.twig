@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Consulter un Service{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Consulter un Service</h1>
+
+    {{ form_start(form) }}
+    <div class="row g-3 align-items-end">
+        <div class="col-md-10">{{ form_row(form.service) }}</div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Consulter</button>
+        </div>
+    </div>
+    {{ form_end(form) }}
+
+    {% if service %}
+        <hr class="my-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Service : {{ service.nom }}</h2>
+            <span class="badge bg-dark fs-5">{{ stats.present }} / {{ stats.total }} présents</span>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <h4>Agents Présents ({{ presentAgents|length }})</h4>
+                {% if presentAgents is not empty %}
+                    <ul class="list-group">
+                        {% for item in presentAgents %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ item.agent.prenom }} {{ item.agent.nom }}
+                                <span class="badge bg-success">{{ item.location }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="alert alert-secondary">Aucun agent de ce service n'est actuellement présent.</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <h4>Agents Absents ({{ absentAgents|length }})</h4>
+                {% if absentAgents is not empty %}
+                    <ul class="list-group">
+                        {% for agent in absentAgents %}
+                            <li class="list-group-item">{{ agent.prenom }} {{ agent.nom }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                     <div class="alert alert-secondary">Tous les agents de ce service sont présents.</div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ path('search_index') }}" class="btn btn-secondary">Retour au menu</a>
+    </div>
+</div>
+{% endblock %}
