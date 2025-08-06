@@ -1,0 +1,69 @@
+{% extends 'dashboard_base.html.twig' %}
+
+{% block title %}Rapport d'Importation des Agents{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Rapport d'Importation des Agents</h1>
+
+    <div class="card">
+        <div class="card-header">
+            Résumé de l'opération
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="alert alert-success">
+                        <h4 class="alert-heading">Agents Créés</h4>
+                        <p class="mb-0 fs-3">{{ report.created }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-warning">
+                        <h4 class="alert-heading">Agents Modifiés</h4>
+                        <p class="mb-0 fs-3">{{ report.updated }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-danger">
+                        <h4 class="alert-heading">Agents Supprimés</h4>
+                        <p class="mb-0 fs-3">{{ report.deleted }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if report.created_services is not empty %}
+        <div class="card mt-4">
+            <div class="card-header">
+                Services Créés Automatiquement
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for service in report.created_services %}
+                        <li class="list-group-item">{{ service }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if report.errors is not empty %}
+        <div class="card mt-4">
+            <div class="card-header text-white bg-danger">
+                Erreurs Rencontrées
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for error in report.errors %}
+                        <li class="list-group-item list-group-item-danger">{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+
+    <a href="{{ path('admin_import_agents') }}" class="btn btn-secondary mt-4">Retour au formulaire d'importation</a>
+</div>
+{% endblock %}
