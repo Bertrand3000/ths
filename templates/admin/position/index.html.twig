@@ -1,0 +1,439 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Gestion des Positions - {{ etage.nom }}{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {# Fabric.js from CDN #}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        #canvas-container {
+            border: 1px solid #ddd;
+            border-radius: 0.35rem;
+        }
+        #position-canvas {
+            display: block;
+        }
+        #save-status {
+            transition: opacity 0.5s ease-in-out;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <h1 class="h3 mb-2 text-gray-800">Gestion des positions de l'étage : {{ etage.nom }}</h1>
+    <p class="mb-4">Gérez l'emplacement, le type et les propriétés des positions sur le plan de l'étage.</p>
+
+    <!-- Toolbar -->
+    <div class="card shadow mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <button class="btn btn-primary" id="save-positions-btn">
+                    <i class="fas fa-save"></i> Sauvegarder les modifications
+                </button>
+                <span id="save-status" class="ms-3"></span>
+            </div>
+            <div>
+                <!-- Plan Upload Form -->
+                {{ form_start(upload_form, {'attr': {'class': 'd-flex'}}) }}
+                    {{ form_widget(upload_form.plan, {'attr': {'class': 'form-control-sm'}}) }}
+                    {{ form_widget(upload_form.save, {'attr': {'class': 'btn btn-secondary btn-sm ms-2'}}) }}
+                {{ form_end(upload_form) }}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Canvas Area -->
+        <div class="col-lg-9">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Plan de l'étage (Double-clic pour ajouter, glisser-déposer pour déplacer)</h6>
+                </div>
+                <div class="card-body" id="canvas-container" style="position: relative; height: 75vh; overflow: hidden; background-color: #f8f9fc;">
+                    <canvas id="position-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div class="col-lg-3">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Configuration de la position</h6>
+                </div>
+                <div class="card-body" id="config-panel" style="display: none;">
+                    <div class="mb-3">
+                        <label for="pos-service" class="form-label">Service</label>
+                        <select id="pos-service" class="form-select">
+                            <option value="">-- Sélectionner --</option>
+                            {% for service in etage.services %}
+                                <option value="{{ service.id }}">{{ service.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pos-type" class="form-label">Type</label>
+                        <select id="pos-type" class="form-select">
+                            <option value="Échange">Échange</option>
+                            <option value="Concentration">Concentration</option>
+                            <option value="Bulle">Bulle</option>
+                            <option value="Réunion">Réunion</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pos-switch" class="form-label">Switch Réseau</label>
+                        <select id="pos-switch" class="form-select">
+                            <option value="">-- Sélectionner --</option>
+                             {% for switch in etage.networkSwitches %}
+                                <option value="{{ switch.id }}">{{ switch.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pos-prise" class="form-label">Prise Réseau</label>
+                        <input type="text" id="pos-prise" class="form-control" placeholder="Ex: A-01">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="pos-flex" checked>
+                        <label class="form-check-label" for="pos-flex">Flexibilité</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="pos-sanctuaire">
+                        <label class="form-check-label" for="pos-sanctuaire">Sanctuaire</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Coordonnées</label>
+                        <p id="pos-coords" class="form-control-plaintext">X: -, Y: -</p>
+                    </div>
+                    <hr>
+                    <button class="btn btn-danger" id="delete-position-btn">
+                        <i class="fas fa-trash"></i> Supprimer la position
+                    </button>
+                </div>
+                <div class="card-body" id="no-selection-panel">
+                    <p class="text-muted">Sélectionnez ou créez une position pour la configurer.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- DOM Elements ---
+    const canvasContainer = document.getElementById('canvas-container');
+    const configPanel = document.getElementById('config-panel');
+    const noSelectionPanel = document.getElementById('no-selection-panel');
+    const saveBtn = document.getElementById('save-positions-btn');
+    const deleteBtn = document.getElementById('delete-position-btn');
+    const saveStatus = document.getElementById('save-status');
+
+    // --- Form Inputs ---
+    const serviceSelect = document.getElementById('pos-service');
+    const typeSelect = document.getElementById('pos-type');
+    const switchSelect = document.getElementById('pos-switch');
+    const priseInput = document.getElementById('pos-prise');
+    const flexCheckbox = document.getElementById('pos-flex');
+    const sanctuaireCheckbox = document.getElementById('pos-sanctuaire');
+    const coordsDisplay = document.getElementById('pos-coords');
+
+    // --- Data from Controller ---
+    const etageData = {{ etage|json_encode|raw }};
+    const positions = new Map(etageData.positions.map(p => [p.id, {...p, status: 'unchanged'}]));
+    let newPositionCounter = 0;
+
+    // --- Fabric.js Canvas Initialization ---
+    const canvas = new fabric.Canvas('position-canvas', {
+        width: canvasContainer.clientWidth,
+        height: canvasContainer.clientHeight,
+        selection: false,
+    });
+
+    function setCanvasBackground() {
+        if (etageData.arriereplan) {
+            fabric.Image.fromURL('/uploads/plans/' + etageData.arriereplan, function(img) {
+                canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                    scaleX: canvas.width / img.width,
+                    scaleY: canvas.height / img.height,
+                });
+            });
+        }
+    }
+    setCanvasBackground();
+
+    // --- Position Representation ---
+    function createPositionCircle(pos) {
+        const circle = new fabric.Circle({
+            left: pos.coordx,
+            top: pos.coordy,
+            radius: 8,
+            fill: '#36b9cc',
+            stroke: 'white',
+            strokeWidth: 2,
+            originX: 'center',
+            originY: 'center',
+            hasControls: false,
+            hasBorders: true,
+            borderColor: '#e74a3b',
+        });
+        circle.customData = pos;
+        return circle;
+    }
+
+    // --- Load Initial Positions ---
+    positions.forEach(pos => {
+        const circle = createPositionCircle(pos);
+        canvas.add(circle);
+    });
+
+    // --- UI Update Functions ---
+    function showConfigPanel(obj) {
+        const data = obj.customData;
+        serviceSelect.value = data.idservice || '';
+        typeSelect.value = data.type || 'Échange';
+        switchSelect.value = data.idswitch || '';
+        priseInput.value = data.prise || '';
+        flexCheckbox.checked = data.flex;
+        sanctuaireCheckbox.checked = data.sanctuaire;
+        coordsDisplay.textContent = `X: ${Math.round(obj.left)}, Y: ${Math.round(obj.top)}`;
+
+        configPanel.style.display = 'block';
+        noSelectionPanel.style.display = 'none';
+    }
+
+    function hideConfigPanel() {
+        configPanel.style.display = 'none';
+        noSelectionPanel.style.display = 'block';
+        canvas.discardActiveObject().renderAll();
+    }
+
+    // --- Zoom and Pan Logic ---
+    canvas.on('mouse:wheel', function(opt) {
+        const delta = opt.e.deltaY;
+        let zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.1) zoom = 0.1;
+        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+    });
+
+    canvas.on('mouse:down', function(opt) {
+        const evt = opt.e;
+        if (evt.altKey === true) {
+            this.isDragging = true;
+            this.selection = false;
+            this.lastPosX = evt.clientX;
+            this.lastPosY = evt.clientY;
+            this.setCursor('grabbing');
+        }
+    });
+
+    canvas.on('mouse:move', function(opt) {
+        if (this.isDragging) {
+            const e = opt.e;
+            const vpt = this.viewportTransform;
+            vpt[4] += e.clientX - this.lastPosX;
+            vpt[5] += e.clientY - this.lastPosY;
+            this.requestRenderAll();
+            this.lastPosX = e.clientX;
+            this.lastPosY = e.clientY;
+        }
+    });
+
+    canvas.on('mouse:up', function(opt) {
+        this.setViewportTransform(this.viewportTransform);
+        this.isDragging = false;
+        this.selection = true;
+        this.setCursor('default');
+    });
+
+    // --- Canvas Event Handlers ---
+    canvas.on('mouse:dblclick', function(options) {
+        if (this.isDragging) return;
+        if (!options.target) {
+            const pointer = canvas.getPointer(options.e);
+            newPositionCounter++;
+            const newId = `new_${newPositionCounter}`;
+
+            const newPos = {
+                id: newId,
+                status: 'new',
+                coordx: Math.round(pointer.x),
+                coordy: Math.round(pointer.y),
+                idservice: null,
+                idswitch: null,
+                type: 'Échange',
+                prise: '',
+                flex: true,
+                sanctuaire: false
+            };
+
+            positions.set(newId, newPos);
+            const circle = createPositionCircle(newPos);
+            canvas.add(circle);
+            canvas.setActiveObject(circle);
+
+            // Fetch nearest service
+            fetch(`/admin/etage/${etageData.id}/positions/nearest-service?x=${newPos.coordx}&y=${newPos.coordy}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.service_id) {
+                        newPos.idservice = data.service_id;
+                        positions.set(newId, newPos);
+                        // If this new circle is still the active one, update its form
+                        if (canvas.getActiveObject() === circle) {
+                            serviceSelect.value = data.service_id;
+                        }
+                    }
+                })
+                .catch(err => console.error("Failed to fetch nearest service:", err));
+        }
+    });
+
+    canvas.on('selection:created', (e) => showConfigPanel(e.target));
+    canvas.on('selection:updated', (e) => showConfigPanel(e.target));
+    canvas.on('selection:cleared', () => hideConfigPanel());
+
+    canvas.on('object:moving', function(options) {
+        const obj = options.target;
+        const data = obj.customData;
+        data.coordx = Math.round(obj.left);
+        data.coordy = Math.round(obj.top);
+        if (data.status !== 'new') {
+            data.status = 'updated';
+        }
+        positions.set(data.id, data);
+        coordsDisplay.textContent = `X: ${data.coordx}, Y: ${data.coordy}`;
+    });
+
+    // --- Config Panel Event Handlers ---
+    function updateSelectedObject(updater) {
+        const activeObject = canvas.getActiveObject();
+        if (activeObject) {
+            const data = activeObject.customData;
+            updater(data);
+            if (data.status !== 'new') {
+                data.status = 'updated';
+            }
+            positions.set(data.id, data);
+        }
+    }
+
+    serviceSelect.addEventListener('change', (e) => updateSelectedObject(d => d.idservice = parseInt(e.target.value) || null));
+    typeSelect.addEventListener('change', (e) => updateSelectedObject(d => d.type = e.target.value));
+    switchSelect.addEventListener('change', (e) => updateSelectedObject(d => d.idswitch = parseInt(e.target.value) || null));
+    priseInput.addEventListener('input', (e) => updateSelectedObject(d => d.prise = e.target.value));
+    flexCheckbox.addEventListener('change', (e) => updateSelectedObject(d => d.flex = e.target.checked));
+    sanctuaireCheckbox.addEventListener('change', (e) => updateSelectedObject(d => d.sanctuaire = e.target.checked));
+
+    // --- Delete Logic ---
+    function deleteSelectedObject() {
+        const activeObject = canvas.getActiveObject();
+        if (activeObject) {
+            const data = activeObject.customData;
+            if (data.status === 'new') {
+                positions.delete(data.id);
+            } else {
+                data.status = 'deleted';
+                positions.set(data.id, data);
+            }
+            canvas.remove(activeObject);
+            hideConfigPanel();
+        }
+    }
+
+    deleteBtn.addEventListener('click', deleteSelectedObject);
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            deleteSelectedObject();
+        }
+    });
+
+    // --- Window Resize ---
+    window.addEventListener('resize', function() {
+        canvas.setWidth(canvasContainer.clientWidth);
+        canvas.setHeight(canvasContainer.clientHeight);
+        setCanvasBackground();
+    });
+
+    // --- Save Logic (AJAX) ---
+    saveBtn.addEventListener('click', function() {
+        const changedPositions = Array.from(positions.values()).filter(p => p.status !== 'unchanged');
+
+        if (changedPositions.length === 0) {
+            saveStatus.textContent = 'Aucune modification à sauvegarder.';
+            saveStatus.className = 'text-info';
+            setTimeout(() => saveStatus.textContent = '', 3000);
+            return;
+        }
+
+        saveStatus.textContent = 'Sauvegarde en cours...';
+        saveStatus.className = 'text-warning';
+        saveBtn.disabled = true;
+
+        fetch('{{ path('admin_etage_positions_save', {id: etage.id}) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ positions: changedPositions })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                saveStatus.textContent = 'Sauvegarde réussie !';
+                saveStatus.className = 'text-success';
+
+                // Update local data store
+                const newIdMap = data.new_ids || {};
+
+                // Update new items with their real IDs
+                canvas.getObjects().forEach(obj => {
+                    const oldId = obj.customData.id;
+                    if (newIdMap[oldId]) {
+                        const newId = newIdMap[oldId];
+                        obj.customData.id = newId;
+                        const pos = positions.get(oldId);
+                        pos.id = newId;
+                        positions.delete(oldId);
+                        positions.set(newId, pos);
+                    }
+                });
+
+                // Reset status for all items
+                positions.forEach(p => {
+                    if (p.status === 'deleted') {
+                        positions.delete(p.id);
+                    } else {
+                        p.status = 'unchanged';
+                    }
+                });
+
+            } else {
+                saveStatus.textContent = `Erreur: ${data.message || 'Erreur inconnue'}`;
+                saveStatus.className = 'text-danger';
+            }
+        })
+        .catch(error => {
+            saveStatus.textContent = 'Erreur de communication.';
+            saveStatus.className = 'text-danger';
+            console.error('Save error:', error);
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            setTimeout(() => saveStatus.textContent = '', 5000);
+        });
+    });
+});
+</script>
+
+{% endblock %}

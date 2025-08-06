@@ -678,20 +678,24 @@ class ArchitectureService
             throw new \InvalidArgumentException("Etage with id {$data['etage_id']} does not exist!");
         }
 
-        $service = $this->em->getRepository(Service::class)->find($data['service_id']);
-        if (!$service) {
-            throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
-        }
-
-        $switch = $this->em->getRepository(NetworkSwitch::class)->find($data['switch_id']);
-        if (!$switch) {
-            throw new \InvalidArgumentException("Switch with id {$data['switch_id']} does not exist!");
-        }
-
         $position = new Position();
         $position->setEtage($etage);
-        $position->setService($service);
-        $position->setNetworkSwitch($switch);
+
+        if (!empty($data['service_id'])) {
+            $service = $this->em->getRepository(Service::class)->find($data['service_id']);
+            if (!$service) {
+                throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+            }
+            $position->setService($service);
+        }
+
+        if (!empty($data['switch_id'])) {
+            $switch = $this->em->getRepository(NetworkSwitch::class)->find($data['switch_id']);
+            if (!$switch) {
+                throw new \InvalidArgumentException("Switch with id {$data['switch_id']} does not exist!");
+            }
+            $position->setNetworkSwitch($switch);
+        }
         $position->setCoordx($data['coordx']);
         $position->setCoordy($data['coordy']);
         $position->setPrise($data['prise']);
@@ -728,18 +732,24 @@ class ArchitectureService
             $position->setEtage($etage);
         }
 
-        if (isset($data['service_id'])) {
-            $service = $this->em->getRepository(Service::class)->find($data['service_id']);
-            if (!$service) {
-                throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+        if (array_key_exists('service_id', $data)) {
+            $service = null;
+            if ($data['service_id'] !== null) {
+                $service = $this->em->getRepository(Service::class)->find($data['service_id']);
+                if (!$service) {
+                    throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+                }
             }
             $position->setService($service);
         }
 
-        if (isset($data['switch_id'])) {
-            $switch = $this->em->getRepository(NetworkSwitch::class)->find($data['switch_id']);
-            if (!$switch) {
-                throw new \InvalidArgumentException("Switch with id {$data['switch_id']} does not exist!");
+        if (array_key_exists('switch_id', $data)) {
+            $switch = null;
+            if ($data['switch_id'] !== null) {
+                $switch = $this->em->getRepository(NetworkSwitch::class)->find($data['switch_id']);
+                if (!$switch) {
+                    throw new \InvalidArgumentException("Switch with id {$data['switch_id']} does not exist!");
+                }
             }
             $position->setNetworkSwitch($switch);
         }
@@ -920,4 +930,43 @@ class ArchitectureService
         return $position;
     }
     //endregion
+
+    /**
+     * Trouve le service de la position la plus proche des coordonnées données.
+     *
+     * @param Etage $etage
+     * @param int $x
+     * @param int $y
+     * @return Service|null
+     */
+    public function findNearestService(Etage $etage, int $x, int $y): ?\App\Entity\Service
+    {
+        $positions = $etage->getPositions();
+        if ($positions->isEmpty()) {
+            return null;
+        }
+
+        $closestPosition = null;
+        $minDistanceSq = PHP_INT_MAX;
+
+        foreach ($positions as $position) {
+            // Ne considère que les positions qui ont un service
+            if ($position->getService() === null) {
+                continue;
+            }
+
+            $distSq = pow($position->getCoordx() - $x, 2) + pow($position->getCoordy() - $y, 2);
+            if ($distSq < $minDistanceSq) {
+                $minDistanceSq = $distSq;
+                $closestPosition = $position;
+            }
+        }
+
+        // Optionnel: ajouter un seuil de distance maximale
+        // if ($minDistanceSq > (100*100)) { // ex: 100 pixels
+        //     return null;
+        // }
+
+        return $closestPosition ? $closestPosition->getService() : null;
+    }
 }
