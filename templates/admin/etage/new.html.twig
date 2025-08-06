@@ -1,0 +1,11 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Créer un nouvel Étage{% endblock %}
+
+{% block body %}
+    <h1>Créer un nouvel Étage</h1>
+
+    {{ include('admin/etage/_form.html.twig') }}
+
+    <a href="{{ path('admin_etage_index') }}" class="btn btn-secondary mt-3">Retour à la liste</a>
+{% endblock %}

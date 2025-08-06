@@ -1,0 +1,37 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Gestion des Étages{% endblock %}
+
+{% block body %}
+    <h1>Gestion des Étages</h1>
+
+    <a href="{{ path('admin_etage_new') }}" class="btn btn-primary mb-3">Créer un nouvel étage</a>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Nom</th>
+                <th>Site Parent</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for etage in etages %}
+            <tr>
+                <td>{{ etage.id }}</td>
+                <td>{{ etage.nom }}</td>
+                <td>{{ etage.site.nom }}</td>
+                <td>
+                    <a href="{{ path('admin_etage_show', {'id': etage.id}) }}" class="btn btn-sm btn-info">Voir</a>
+                    <a href="{{ path('admin_etage_edit', {'id': etage.id}) }}" class="btn btn-sm btn-warning">Modifier</a>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="4">Aucun étage trouvé.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Détails du Site{% endblock %}
+
+{% block body %}
+    <h1>Détails du Site</h1>
+
+    <table class="table">
+        <tbody>
+            <tr>
+                <th>Id</th>
+                <td>{{ site.id }}</td>
+            </tr>
+            <tr>
+                <th>Nom</th>
+                <td>{{ site.nom }}</td>
+            </tr>
+            <tr>
+                <th>Flex Office</th>
+                <td>{{ site.flex ? 'Oui' : 'Non' }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="d-flex justify-content-between mt-3">
+        <div>
+            <a href="{{ path('admin_site_index') }}" class="btn btn-secondary">Retour à la liste</a>
+            <a href="{{ path('admin_site_edit', {'id': site.id}) }}" class="btn btn-warning">Modifier</a>
+        </div>
+        {{ include('admin/site/_delete_form.html.twig') }}
+    </div>
+
+{% endblock %}

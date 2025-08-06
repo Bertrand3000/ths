@@ -1,0 +1,38 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Tableau de bord - {{ parent() }}{% endblock %}
+
+{% block body %}
+    <h1>Tableau de bord</h1>
+    <p>Bienvenue dans l'interface d'administration de Téhou.</p>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Sites</h5>
+                    <h2 class="text-primary">{{ stats.sites|length }}</h2>
+                    <a href="#" class="btn btn-primary">Gérer les sites</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Étages</h5>
+                    <h2 class="text-success">{{ stats.etages }}</h2>
+                    <a href="#" class="btn btn-success">Gérer les étages</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Services</h5>
+                    <h2 class="text-info">{{ stats.services }}</h2>
+                    <a href="#" class="btn btn-info">Gérer les services</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

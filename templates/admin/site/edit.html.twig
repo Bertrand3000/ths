@@ -1,0 +1,14 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Modifier le Site{% endblock %}
+
+{% block body %}
+    <h1>Modifier le Site</h1>
+
+    {{ include('admin/site/_form.html.twig', {'button_label': 'Mettre à jour'}) }}
+
+    <div class="d-flex justify-content-between mt-3">
+        <a href="{{ path('admin_site_index') }}" class="btn btn-secondary">Retour à la liste</a>
+        {{ include('admin/site/_delete_form.html.twig') }}
+    </div>
+{% endblock %}
