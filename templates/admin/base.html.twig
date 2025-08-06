@@ -20,13 +20,13 @@
                     <a class="nav-link" href="{{ path('admin_index') }}">Accueil</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Sites</a>
+                    <a class="nav-link" href="{{ path('admin_site_index') }}">Sites</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Étages</a>
+                    <a class="nav-link" href="{{ path('admin_etage_index') }}">Étages</a>
                 </li>
                  <li class="nav-item">
-                    <a class="nav-link" href="#">Services</a>
+                    <a class="nav-link" href="{{ path('admin_service_index') }}">Services</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ path('admin_import_agents') }}">Import Agents</a>
@@ -45,7 +45,7 @@
         {% endfor %}
     {% endfor %}
 
-    {% block breadcrumb %}{% endblock %}
+    {{ include('admin/_breadcrumbs.html.twig') }}
     {% block body %}{% endblock %}
 </main>
 

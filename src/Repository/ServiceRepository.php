@@ -48,4 +48,41 @@ class ServiceRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Recherche les services en fonction de critères, avec tri.
+     * @return Service[]
+     */
+    public function search(?string $q, string $sort, string $direction, ?int $etageId, ?int $siteId): array
+    {
+        $qb = $this->createQueryBuilder('s')
+            ->leftJoin('s.etage', 'e')
+            ->addSelect('e')
+            ->leftJoin('e.site', 'si')
+            ->addSelect('si');
+
+        if ($q) {
+            $qb->andWhere('s.nom LIKE :q OR e.nom LIKE :q OR si.nom LIKE :q')
+                ->setParameter('q', '%' . $q . '%');
+        }
+
+        if ($etageId) {
+            $qb->andWhere('s.etage = :etageId')
+                ->setParameter('etageId', $etageId);
+        }
+
+        if ($siteId) {
+            $qb->andWhere('e.site = :siteId')
+                ->setParameter('siteId', $siteId);
+        }
+
+        if ($sort && $direction) {
+            $allowedSorts = ['s.id', 's.nom', 'e.nom', 'si.nom'];
+            if (in_array($sort, $allowedSorts)) {
+                $qb->orderBy($sort, $direction);
+            }
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

@@ -2,17 +2,50 @@
 
 {% block title %}Gestion des Étages{% endblock %}
 
+{% macro sortable_link(label, field) %}
+    {% set new_direction = (sort == field and direction == 'asc') ? 'desc' : 'asc' %}
+    <a href="{{ path('admin_etage_index', app.request.query.all|merge({sort: field, direction: new_direction, page: 1})) }}">
+        {{ label }}
+        {% if sort == field %}
+            <i class="fas fa-sort-{{ direction == 'asc' ? 'up' : 'down' }}"></i>
+        {% endif %}
+    </a>
+{% endmacro %}
+
 {% block body %}
     <h1>Gestion des Étages</h1>
 
-    <a href="{{ path('admin_etage_new') }}" class="btn btn-primary mb-3">Créer un nouvel étage</a>
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <form action="{{ path('admin_etage_index') }}" method="get">
+                <div class="input-group">
+                    {{ form_widget(search_form.q, {'attr': {'placeholder': 'Rechercher par nom...'}}) }}
+                    <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+                </div>
+                {{ form_rest(search_form) }}
+            </form>
+        </div>
+        <div class="col-md-4">
+            <form action="{{ path('admin_etage_index') }}" method="get" id="site-filter-form">
+                 <select name="site_id" class="form-select" onchange="document.getElementById('site-filter-form').submit()">
+                    <option value="">Tous les sites</option>
+                    {% for site in sites %}
+                        <option value="{{ site.id }}" {{ site.id == current_site_id ? 'selected' : '' }}>{{ site.nom }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="col-md-2 text-end">
+            <a href="{{ path('admin_etage_new') }}" class="btn btn-primary">Créer un étage</a>
+        </div>
+    </div>
 
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>Id</th>
-                <th>Nom</th>
-                <th>Site Parent</th>
+                <th>{{ _self.sortable_link('ID', 'e.id') }}</th>
+                <th>{{ _self.sortable_link('Nom', 'e.nom') }}</th>
+                <th>{{ _self.sortable_link('Site', 's.nom') }}</th>
                 <th>Actions</th>
             </tr>
         </thead>
