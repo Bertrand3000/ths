@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rechercher un Agent{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Rechercher un Agent</h1>
+
+    {{ form_start(form) }}
+    <div class="row">
+        <div class="col-md-5">{{ form_row(form.search_term) }}</div>
+        <div class="col-md-5">{{ form_row(form.num_agent) }}</div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Rechercher</button>
+        </div>
+    </div>
+    {{ form_end(form) }}
+
+    {% if searchTerm %}
+        <hr class="my-4">
+        <h2 class="mb-3">Résultats pour "{{ searchTerm }}"</h2>
+
+        {% if results is not empty %}
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Agent</th>
+                        <th>Service</th>
+                        <th>Statut</th>
+                        <th>Localisation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                        <tr>
+                            <td>{{ result.agent.prenom }} {{ result.agent.nom }} ({{ result.agent.numagent }})</td>
+                            <td>{{ result.agent.service.nom }}</td>
+                            <td>
+                                {% if result.status == 'Présent' %}
+                                    <span class="badge bg-success">Présent</span>
+                                {% elseif result.status == 'En télétravail' %}
+                                    <span class="badge bg-info">En télétravail</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Absent</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ result.location }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-warning" role="alert">
+                Aucun agent trouvé pour les critères de recherche.
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ path('search_index') }}" class="btn btn-secondary">Retour au menu</a>
+    </div>
+</div>
+{% endblock %}

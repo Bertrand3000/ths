@@ -22,15 +22,40 @@ class PositionRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param \App\Entity\Etage|null $etage
+     * @param \App\Entity\Service|null $service
+     * @param string|null $type
      * @return Position[]
      */
-    public function findAvailablePositions(): array
+    public function findAvailablePositionsFiltered(\App\Entity\Etage $etage = null, \App\Entity\Service $service = null, string $type = null): array
     {
-        return $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
+            ->select('p', 'e', 's')
             ->leftJoin('p.agentPosition', 'ap')
-            ->andWhere('ap.agent IS NULL')
+            ->join('p.etage', 'e')
+            ->join('p.service', 's')
+            ->where('ap.agent IS NULL')
             ->andWhere('p.flex = :flex')
-            ->setParameter('flex', true)
+            ->setParameter('flex', true);
+
+        if ($etage) {
+            $qb->andWhere('p.etage = :etage')
+                ->setParameter('etage', $etage);
+        }
+
+        if ($service) {
+            $qb->andWhere('p.service = :service')
+                ->setParameter('service', $service);
+        }
+
+        if ($type) {
+            $qb->andWhere('p.type = :type')
+                ->setParameter('type', $type);
+        }
+
+        return $qb->orderBy('e.nom', 'ASC')
+            ->addOrderBy('s.nom', 'ASC')
+            ->addOrderBy('p.prise', 'ASC')
             ->getQuery()
             ->getResult();
     }

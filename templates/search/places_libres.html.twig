@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rechercher des Places Libres{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Rechercher des Places Libres</h1>
+
+    {{ form_start(form) }}
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">{{ form_row(form.etage) }}</div>
+        <div class="col-md-4">{{ form_row(form.service) }}</div>
+        <div class="col-md-3">{{ form_row(form.type) }}</div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+        </div>
+    </div>
+    {{ form_end(form) }}
+
+    <hr class="my-4">
+
+    <h2 class="mb-3">Places Disponibles ({{ positions|length }})</h2>
+
+    {% if positions is not empty %}
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Étage</th>
+                    <th>Service</th>
+                    <th>Prise</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in positions %}
+                    <tr>
+                        <td>{{ position.etage.nom }}</td>
+                        <td>{{ position.service.nom }}</td>
+                        <td>{{ position.prise }}</td>
+                        <td><span class="badge bg-info">{{ position.type }}</span></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            Aucune place libre trouvée pour les filtres sélectionnés.
+        </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ path('search_index') }}" class="btn btn-secondary">Retour au menu</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Consulter un Étage{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Consulter un Étage</h1>
+
+    {{ form_start(form) }}
+    <div class="row g-3 align-items-end">
+        <div class="col-md-10">{{ form_row(form.etage) }}</div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Consulter</button>
+        </div>
+    </div>
+    {{ form_end(form) }}
+
+    {% if etage %}
+        <hr class="my-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Étage : {{ etage.nom }}</h2>
+            <a href="{{ path('dashboard_etage', {id: etage.id}) }}" class="btn btn-info">Voir le dashboard visuel</a>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fs-5">Statistiques Globales de l'Étage</div>
+            <div class="card-body">
+                <p>Taux d'occupation global : <strong>{{ globalStats.occupied }} / {{ globalStats.total }} ({{ globalStats.rate }}%)</strong></p>
+                <div class="progress">
+                    <div class="progress-bar" role="progressbar" style="width: {{ globalStats.rate }}%;" aria-valuenow="{{ globalStats.rate }}" aria-valuemin="0" aria-valuemax="100">{{ globalStats.rate }}%</div>
+                </div>
+            </div>
+        </div>
+
+        <h4>Détail par service</h4>
+        <div class="list-group">
+            {% for data in servicesData %}
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ data.service.nom }}</h5>
+                        <small>{{ data.stats.occupied }} / {{ data.stats.total }}</small>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-{{ data.stats.color }}" role="progressbar" style="width: {{ data.stats.rate }}%;" aria-valuenow="{{ data.stats.rate }}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ path('search_index') }}" class="btn btn-secondary">Retour au menu</a>
+    </div>
+</div>
+{% endblock %}
