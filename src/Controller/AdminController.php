@@ -12,8 +12,10 @@ use App\Form\SiteType;
 use App\Service\AgentImportService;
 use App\Service\ArchitectureService;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Form\PlanType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -518,6 +520,144 @@ class AdminController extends AbstractController
         }
 
         return $this->redirectToRoute('admin_service_index');
+    }
+    //endregion
+
+    //region Position Management
+    #[Route('/etage/{id}/positions/nearest-service', name: 'admin_etage_nearest_service', methods: ['GET'])]
+    public function etageNearestService(Request $request, Etage $etage): JsonResponse
+    {
+        $x = $request->query->getInt('x');
+        $y = $request->query->getInt('y');
+
+        $service = $this->architectureService->findNearestService($etage, $x, $y);
+
+        return new JsonResponse([
+            'service_id' => $service ? $service->getId() : null,
+        ]);
+    }
+
+    #[Route('/etage/{id}/positions', name: 'admin_etage_positions', methods: ['GET'])]
+    public function etagePositions(Etage $etage): Response
+    {
+        $uploadForm = $this->createForm(PlanType::class, null, [
+            'action' => $this->generateUrl('admin_etage_upload_plan', ['id' => $etage->getId()]),
+            'method' => 'POST',
+        ]);
+
+        return $this->render('admin/position/index.html.twig', [
+            'etage' => $etage,
+            'upload_form' => $uploadForm->createView(),
+        ]);
+    }
+
+    #[Route('/etage/{id}/upload-plan', name: 'admin_etage_upload_plan', methods: ['POST'])]
+    public function etageUploadPlan(Request $request, Etage $etage): Response
+    {
+        $form = $this->createForm(PlanType::class);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var UploadedFile $planFile */
+            $planFile = $form->get('plan')->getData();
+
+            if ($planFile) {
+                $originalFilename = pathinfo($planFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = transliterator_transliterate('Any-Latin; Latin-ASCII; [^A-Za-z0-9_] remove; Lower()', $originalFilename);
+                $newFilename = $safeFilename.'-'.uniqid().'.'.$planFile->guessExtension();
+
+                try {
+                    $plansDirectory = $this->getParameter('kernel.project_dir').'/public/uploads/plans';
+                    $planFile->move($plansDirectory, $newFilename);
+
+                    // Get image dimensions
+                    [$width, $height] = getimagesize($plansDirectory.'/'.$newFilename);
+
+                    $this->architectureService->updateEtage($etage->getId(), [
+                        'arriereplan' => $newFilename,
+                        'largeur' => $width,
+                        'hauteur' => $height,
+                    ]);
+
+                    $this->addFlash('success', 'Le plan a été uploadé et mis à jour avec succès.');
+
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Une erreur est survenue lors de l\'upload du plan : ' . $e->getMessage());
+                }
+            }
+        } else {
+            foreach ($form->getErrors(true) as $error) {
+                $this->addFlash('error', $error->getMessage());
+            }
+        }
+
+        return $this->redirectToRoute('admin_etage_positions', ['id' => $etage->getId()]);
+    }
+
+    #[Route('/etage/{id}/positions/save', name: 'admin_etage_positions_save', methods: ['POST'])]
+    public function etagePositionsSave(Request $request, Etage $etage): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        if ($data === null) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Invalid JSON'], 400);
+        }
+
+        // Basic validation
+        if (!isset($data['positions']) || !is_array($data['positions'])) {
+             return new JsonResponse(['status' => 'error', 'message' => 'Missing positions data'], 400);
+        }
+
+        $newIdMap = [];
+
+        try {
+            foreach ($data['positions'] as $posData) {
+                if (!isset($posData['status'])) continue;
+
+                switch ($posData['status']) {
+                    case 'new':
+                        // Ensure required fields are present for new positions
+                        if (!isset($posData['prise'], $posData['type'])) {
+                            throw new \InvalidArgumentException('Missing required data for new position.');
+                        }
+                        $newPositionData = [
+                            'etage_id' => $etage->getId(),
+                            'service_id' => $posData['idservice'],
+                            'switch_id' => $posData['idswitch'],
+                            'coordx' => $posData['coordx'],
+                            'coordy' => $posData['coordy'],
+                            'prise' => $posData['prise'],
+                            'type' => $posData['type'],
+                            'flex' => $posData['flex'],
+                            'sanctuaire' => $posData['sanctuaire'],
+                        ];
+                        $newPosition = $this->architectureService->addPosition($newPositionData);
+                        $newIdMap[$posData['id']] = $newPosition->getId();
+                        break;
+
+                    case 'updated':
+                        $this->architectureService->updatePosition($posData['id'], [
+                            'service_id' => $posData['idservice'],
+                            'switch_id' => $posData['idswitch'],
+                            'coordx' => $posData['coordx'],
+                            'coordy' => $posData['coordy'],
+                            'prise' => $posData['prise'],
+                            'type' => $posData['type'],
+                            'flex' => $posData['flex'],
+                            'sanctuaire' => $posData['sanctuaire'],
+                        ]);
+                        break;
+
+                    case 'deleted':
+                        $this->architectureService->deletePosition($posData['id']);
+                        break;
+                }
+            }
+            $this->entityManager->flush();
+            return new JsonResponse(['status' => 'ok', 'new_ids' => $newIdMap]);
+
+        } catch (\Exception $e) {
+            return new JsonResponse(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
     //endregion
 }
