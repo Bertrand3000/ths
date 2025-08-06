@@ -1,0 +1,44 @@
+{% extends 'dashboard_base.html.twig' %}
+
+{% block title %}Importer des Agents{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Importer des Agents depuis un fichier XLS</h1>
+    <p>
+        Ce formulaire vous permet de synchroniser la base de données des agents avec un fichier XLS.
+    </p>
+    <p>
+        Le format attendu est le suivant :
+    </p>
+    <ul>
+        <li><strong>Colonne A:</strong> Numéro d'agent</li>
+        <li><strong>Colonne B:</strong> Civilité</li>
+        <li><strong>Colonne C:</strong> Prénom</li>
+        <li><strong>Colonne D:</strong> Nom</li>
+        <li><strong>Colonne F:</strong> Service</li>
+    </ul>
+    <p>
+        La première ligne du fichier (en-têtes) sera ignorée.
+    </p>
+
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form, {'attr': {'class': 'p-4'}}) }}
+                <div class="mb-3">
+                    {{ form_row(form.xls_file) }}
+                </div>
+                <button type="submit" class="btn btn-primary">Importer</button>
+            {{ form_end(form) }}
+        </div>
+    </div>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }} mt-3">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+</div>
+{% endblock %}

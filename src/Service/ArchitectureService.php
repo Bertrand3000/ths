@@ -841,6 +841,43 @@ class ArchitectureService
 
         return true;
     }
+
+    /**
+     * Met à jour un agent existant.
+     * @param string $numagent
+     * @param array $data
+     * @return Agent
+     */
+    public function updateAgent(string $numagent, array $data): Agent
+    {
+        $agent = $this->em->getRepository(Agent::class)->find($numagent);
+
+        if (!$agent) {
+            throw new \InvalidArgumentException("Agent with numagent $numagent does not exist!");
+        }
+
+        if (!empty($data['service_id'])) {
+            $service = $this->em->getRepository(Service::class)->find($data['service_id']);
+            if (!$service) {
+                throw new \InvalidArgumentException("Service with id {$data['service_id']} does not exist!");
+            }
+            $agent->setService($service);
+        }
+
+        if (!empty($data['nom'])) {
+            $agent->setNom($data['nom']);
+        }
+        if (!empty($data['prenom'])) {
+            $agent->setPrenom($data['prenom']);
+        }
+        if (!empty($data['civilite'])) {
+            $agent->setCivilite($data['civilite']);
+        }
+
+        $this->em->flush();
+
+        return $agent;
+    }
     //endregion
 
     //region Test Data

@@ -3,9 +3,13 @@
 namespace App\Controller;
 
 use App\Form\AgentSearchType;
+use App\Form\EtageSearchType;
+use App\Form\PlacesLibresSearchType;
+use App\Form\ServiceSearchType;
 use App\Repository\AgentConnexionRepository;
 use App\Repository\AgentPositionRepository;
 use App\Repository\AgentRepository;
+use App\Repository\PositionRepository;
 use App\Service\ArchitectureService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -115,8 +119,6 @@ class SearchController extends AbstractController
         ]);
     }
 
-use App\Form\ServiceSearchType;
-
     #[Route('/service', name: 'search_service', methods: ['GET', 'POST'])]
     public function searchService(Request $request): Response
     {
@@ -166,8 +168,6 @@ use App\Form\ServiceSearchType;
             'absentAgents' => $absentAgents,
         ]);
     }
-
-use App\Form\EtageSearchType;
 
     #[Route('/etage', name: 'search_etage', methods: ['GET', 'POST'])]
     public function searchEtage(Request $request): Response
