@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Etage;
+use App\Entity\Service;
 use App\Entity\Site;
 use App\Form\AgentImportType;
 use App\Form\EtageType;
+use App\Form\ServiceType;
 use App\Form\SiteType;
 use App\Service\AgentImportService;
 use App\Service\ArchitectureService;
@@ -29,9 +31,9 @@ class AdminController extends AbstractController
     public function index(): Response
     {
         $stats = [
-            'sites' => $this->architectureService->getSites(),
-            'etages' => $this->entityManager->getRepository(\App\Entity\Etage::class)->count([]),
-            'services' => $this->entityManager->getRepository(\App\Entity\Service::class)->count([]),
+            'sites' => $this->entityManager->getRepository(Site::class)->count([]),
+            'etages' => $this->entityManager->getRepository(Etage::class)->count([]),
+            'services' => $this->entityManager->getRepository(Service::class)->count([]),
         ];
 
         return $this->render('admin/index.html.twig', [
@@ -130,6 +132,10 @@ class AdminController extends AbstractController
         return $this->render('admin/site/new.html.twig', [
             'site' => $site,
             'form' => $form->createView(),
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => 'Nouveau'],
+            ],
         ]);
     }
 
@@ -138,6 +144,10 @@ class AdminController extends AbstractController
     {
         return $this->render('admin/site/show.html.twig', [
             'site' => $site,
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $site->getNom()],
+            ],
         ]);
     }
 
@@ -163,6 +173,11 @@ class AdminController extends AbstractController
         return $this->render('admin/site/edit.html.twig', [
             'site' => $site,
             'form' => $form->createView(),
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $site->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $site->getId()])],
+                ['label' => 'Modifier'],
+            ],
         ]);
     }
 
@@ -185,20 +200,53 @@ class AdminController extends AbstractController
     //endregion
 
     //region Etage CRUD
+    /**
+     * Affiche la liste des étages avec pagination, recherche, tri et filtre.
+     */
     #[Route('/etages', name: 'admin_etage_index', methods: ['GET'])]
     public function etageIndex(Request $request): Response
     {
-        $etages = $this->entityManager->getRepository(Etage::class)->findAll();
+        $searchForm = $this->createForm(\App\Form\AdminSearchType::class);
+        $searchForm->handleRequest($request);
+
+        $q = $searchForm->isSubmitted() && $searchForm->isValid() ? $searchForm->get('q')->getData() : null;
+        $siteId = $request->query->getInt('site_id');
+        $sort = $request->query->get('sort', 'e.nom');
+        $direction = $request->query->get('direction', 'asc');
+        $page = $request->query->getInt('page', 1);
+        $limit = 20;
+
+        $allEtages = $this->entityManager->getRepository(Etage::class)->search($q, $sort, $direction, $siteId);
+        $etages = array_slice($allEtages, ($page - 1) * $limit, $limit);
+        $maxPage = ceil(count($allEtages) / $limit);
+
 
         return $this->render('admin/etage/index.html.twig', [
             'etages' => $etages,
+            'search_form' => $searchForm->createView(),
+            'sites' => $this->entityManager->getRepository(Site::class)->findAll(),
+            'current_site_id' => $siteId,
+            'page' => $page,
+            'maxPage' => $maxPage,
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 
+    /**
+     * Crée un nouvel étage, potentiellement pré-associé à un site.
+     */
     #[Route('/etage/new', name: 'admin_etage_new', methods: ['GET', 'POST'])]
     public function etageNew(Request $request): Response
     {
         $etage = new Etage();
+        $site = null;
+        if ($siteId = $request->query->getInt('site_id')) {
+            $site = $this->entityManager->getRepository(Site::class)->find($siteId);
+            if ($site) {
+                $etage->setSite($site);
+            }
+        }
         $form = $this->createForm(EtageType::class, $etage);
         $form->handleRequest($request);
 
@@ -218,20 +266,45 @@ class AdminController extends AbstractController
             }
         }
 
+        $breadcrumbs = [
+            ['label' => 'Étages', 'url' => $this->generateUrl('admin_etage_index')],
+        ];
+        if ($site) {
+            $breadcrumbs = [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $site->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $site->getId()])],
+                ['label' => 'Nouvel étage'],
+            ];
+        } else {
+            $breadcrumbs[] = ['label' => 'Nouvel étage'];
+        }
+
         return $this->render('admin/etage/new.html.twig', [
             'etage' => $etage,
             'form' => $form->createView(),
+            'breadcrumbs' => $breadcrumbs,
         ]);
     }
 
+    /**
+     * Affiche les détails d'un étage et ses services.
+     */
     #[Route('/etage/{id}', name: 'admin_etage_show', methods: ['GET'])]
     public function etageShow(Etage $etage): Response
     {
         return $this->render('admin/etage/show.html.twig', [
             'etage' => $etage,
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $etage->getSite()->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $etage->getSite()->getId()])],
+                ['label' => $etage->getNom()],
+            ],
         ]);
     }
 
+    /**
+     * Modifie un étage existant.
+     */
     #[Route('/etage/{id}/edit', name: 'admin_etage_edit', methods: ['GET', 'POST'])]
     public function etageEdit(Request $request, Etage $etage): Response
     {
@@ -257,24 +330,194 @@ class AdminController extends AbstractController
         return $this->render('admin/etage/edit.html.twig', [
             'etage' => $etage,
             'form' => $form->createView(),
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $etage->getSite()->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $etage->getSite()->getId()])],
+                ['label' => $etage->getNom(), 'url' => $this->generateUrl('admin_etage_show', ['id' => $etage->getId()])],
+                ['label' => 'Modifier'],
+            ],
         ]);
     }
 
+    /**
+     * Supprime un étage, avec une vérification des services enfants.
+     */
     #[Route('/etage/{id}', name: 'admin_etage_delete', methods: ['POST'])]
     public function etageDelete(Request $request, Etage $etage): Response
     {
         if ($this->isCsrfTokenValid('delete'.$etage->getId(), $request->request->get('_token'))) {
+            if ($etage->getServices()->count() > 0) {
+                $this->addFlash('error', 'Impossible de supprimer cet étage car il contient des services. Veuillez d\'abord supprimer les services associés.');
+                return $this->redirectToRoute('admin_etage_show', ['id' => $etage->getId()]);
+            }
+
             try {
                 $this->architectureService->deleteEtage($etage->getId());
                 $this->addFlash('success', 'L\'étage a été supprimé avec succès.');
             } catch (\InvalidArgumentException $e) {
                 $this->addFlash('error', $e->getMessage());
-            } catch (\Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException $e) {
-                $this->addFlash('error', 'Impossible de supprimer cet étage car il contient des services.');
             }
         }
 
         return $this->redirectToRoute('admin_etage_index');
+    }
+    //endregion
+
+    //region Service CRUD
+    /**
+     * Affiche la liste des services avec pagination, recherche, tri et filtre.
+     */
+    #[Route('/services', name: 'admin_service_index', methods: ['GET'])]
+    public function serviceIndex(Request $request): Response
+    {
+        $searchForm = $this->createForm(\App\Form\AdminSearchType::class);
+        $searchForm->handleRequest($request);
+
+        $q = $searchForm->isSubmitted() && $searchForm->isValid() ? $searchForm->get('q')->getData() : null;
+        $siteId = $request->query->getInt('site_id');
+        $etageId = $request->query->getInt('etage_id');
+        $sort = $request->query->get('sort', 's.nom');
+        $direction = $request->query->get('direction', 'asc');
+        $page = $request->query->getInt('page', 1);
+        $limit = 20;
+
+        $allServices = $this->entityManager->getRepository(Service::class)->search($q, $sort, $direction, $etageId, $siteId);
+        $services = array_slice($allServices, ($page - 1) * $limit, $limit);
+        $maxPage = ceil(count($allServices) / $limit);
+
+        return $this->render('admin/service/index.html.twig', [
+            'services' => $services,
+            'search_form' => $searchForm->createView(),
+            'sites' => $this->entityManager->getRepository(Site::class)->findAll(),
+            'etages' => $this->entityManager->getRepository(Etage::class)->findAll(), // Could be optimized
+            'current_site_id' => $siteId,
+            'current_etage_id' => $etageId,
+            'page' => $page,
+            'maxPage' => $maxPage,
+            'sort' => $sort,
+            'direction' => $direction,
+        ]);
+    }
+
+    /**
+     * Crée un nouveau service, potentiellement pré-associé à un étage.
+     */
+    #[Route('/service/new', name: 'admin_service_new', methods: ['GET', 'POST'])]
+    public function serviceNew(Request $request): Response
+    {
+        $service = new Service();
+        $etage = null;
+        if ($etageId = $request->query->getInt('etage_id')) {
+            $etage = $this->entityManager->getRepository(Etage::class)->find($etageId);
+            if ($etage) {
+                $service->setEtage($etage);
+            }
+        }
+        $form = $this->createForm(ServiceType::class, $service);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->architectureService->addService([
+                    'nom' => $service->getNom(),
+                    'etage_id' => $service->getEtage()->getId(),
+                ]);
+                $this->addFlash('success', 'Le service a été créé avec succès.');
+                return $this->redirectToRoute('admin_service_index');
+            } catch (\InvalidArgumentException $e) {
+                $this->addFlash('error', $e->getMessage());
+            }
+        }
+
+        $breadcrumbs = [['label' => 'Services', 'url' => $this->generateUrl('admin_service_index')]];
+        if ($etage) {
+             $breadcrumbs = [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $etage->getSite()->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $etage->getSite()->getId()])],
+                ['label' => $etage->getNom(), 'url' => $this->generateUrl('admin_etage_show', ['id' => $etage->getId()])],
+                ['label' => 'Nouveau service'],
+            ];
+        } else {
+            $breadcrumbs[] = ['label' => 'Nouveau service'];
+        }
+
+        return $this->render('admin/service/new.html.twig', [
+            'service' => $service,
+            'form' => $form->createView(),
+            'breadcrumbs' => $breadcrumbs,
+        ]);
+    }
+
+    /**
+     * Affiche les détails d'un service.
+     */
+    #[Route('/service/{id}', name: 'admin_service_show', methods: ['GET'])]
+    public function serviceShow(Service $service): Response
+    {
+        return $this->render('admin/service/show.html.twig', [
+            'service' => $service,
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $service->getEtage()->getSite()->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $service->getEtage()->getSite()->getId()])],
+                ['label' => $service->getEtage()->getNom(), 'url' => $this->generateUrl('admin_etage_show', ['id' => $service->getEtage()->getId()])],
+                ['label' => $service->getNom()],
+            ],
+        ]);
+    }
+
+    /**
+     * Modifie un service existant.
+     */
+    #[Route('/service/{id}/edit', name: 'admin_service_edit', methods: ['GET', 'POST'])]
+    public function serviceEdit(Request $request, Service $service): Response
+    {
+        $form = $this->createForm(ServiceType::class, $service);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->architectureService->updateService($service->getId(), [
+                    'nom' => $service->getNom(),
+                    'etage_id' => $service->getEtage()->getId(),
+                ]);
+                $this->addFlash('success', 'Le service a été modifié avec succès.');
+                return $this->redirectToRoute('admin_service_index');
+            } catch (\InvalidArgumentException $e) {
+                $this->addFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('admin/service/edit.html.twig', [
+            'service' => $service,
+            'form' => $form->createView(),
+            'breadcrumbs' => [
+                ['label' => 'Sites', 'url' => $this->generateUrl('admin_site_index')],
+                ['label' => $service->getEtage()->getSite()->getNom(), 'url' => $this->generateUrl('admin_site_show', ['id' => $service->getEtage()->getSite()->getId()])],
+                ['label' => $service->getEtage()->getNom(), 'url' => $this->generateUrl('admin_etage_show', ['id' => $service->getEtage()->getId()])],
+                ['label' => $service->getNom(), 'url' => $this->generateUrl('admin_service_show', ['id' => $service->getId()])],
+                ['label' => 'Modifier'],
+            ],
+        ]);
+    }
+
+    /**
+     * Supprime un service.
+     */
+    #[Route('/service/{id}', name: 'admin_service_delete', methods: ['POST'])]
+    public function serviceDelete(Request $request, Service $service): Response
+    {
+        if ($this->isCsrfTokenValid('delete'.$service->getId(), $request->request->get('_token'))) {
+            try {
+                $this->architectureService->deleteService($service->getId());
+                $this->addFlash('success', 'Le service a été supprimé avec succès.');
+            } catch (\InvalidArgumentException $e) {
+                $this->addFlash('error', $e->getMessage());
+            } catch (\Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException $e) {
+                $this->addFlash('error', 'Impossible de supprimer ce service car il est utilisé.');
+            }
+        }
+
+        return $this->redirectToRoute('admin_service_index');
     }
     //endregion
 }

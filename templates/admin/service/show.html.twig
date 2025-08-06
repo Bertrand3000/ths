@@ -1,0 +1,35 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Service {{ service.nom }}{% endblock %}
+
+{% block body %}
+    <h1>Service : {{ service.nom }}</h1>
+
+    <table class="table">
+        <tbody>
+            <tr>
+                <th>Id</th>
+                <td>{{ service.id }}</td>
+            </tr>
+            <tr>
+                <th>Nom</th>
+                <td>{{ service.nom }}</td>
+            </tr>
+            <tr>
+                <th>Étage</th>
+                <td><a href="{{ path('admin_etage_show', {'id': service.etage.id}) }}">{{ service.etage.nom }}</a></td>
+            </tr>
+            <tr>
+                <th>Site</th>
+                <td><a href="{{ path('admin_site_show', {'id': service.etage.site.id}) }}">{{ service.etage.site.nom }}</a></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <a href="{{ path('admin_service_index') }}" class="btn btn-secondary">Retour à la liste</a>
+    <a href="{{ path('admin_service_edit', {'id': service.id}) }}" class="btn btn-warning">Modifier</a>
+
+    <div class="mt-3">
+        {{ include('admin/service/_delete_form.html.twig') }}
+    </div>
+{% endblock %}

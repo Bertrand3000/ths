@@ -47,4 +47,35 @@ class EtageRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Recherche les étages en fonction de critères, avec tri.
+     * @return Etage[]
+     */
+    public function search(?string $q, string $sort, string $direction, ?int $siteId): array
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->leftJoin('e.site', 's')
+            ->addSelect('s');
+
+        if ($q) {
+            $qb->andWhere('e.nom LIKE :q OR s.nom LIKE :q')
+                ->setParameter('q', '%' . $q . '%');
+        }
+
+        if ($siteId) {
+            $qb->andWhere('e.site = :siteId')
+                ->setParameter('siteId', $siteId);
+        }
+
+        if ($sort && $direction) {
+            // Valider les champs de tri pour éviter l'injection SQL
+            $allowedSorts = ['e.id', 'e.nom', 's.nom'];
+            if (in_array($sort, $allowedSorts)) {
+                $qb->orderBy($sort, $direction);
+            }
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }
