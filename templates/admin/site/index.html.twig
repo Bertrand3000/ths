@@ -1,0 +1,49 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Gestion des Sites{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Gestion des Sites</h1>
+        <a href="{{ path('admin_site_new') }}" class="btn btn-primary">Créer un nouveau site</a>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            {{ form_start(search_form) }}
+                <div class="input-group">
+                    {{ form_widget(search_form.q) }}
+                    <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+                </div>
+            {{ form_end(search_form) }}
+        </div>
+    </div>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Nom</th>
+                <th>Flex Office</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for site in sites %}
+            <tr>
+                <td>{{ site.id }}</td>
+                <td>{{ site.nom }}</td>
+                <td>{{ site.flex ? 'Oui' : 'Non' }}</td>
+                <td>
+                    <a href="{{ path('admin_site_show', {'id': site.id}) }}" class="btn btn-sm btn-info" title="Voir"><i class="fas fa-eye"></i></a>
+                    <a href="{{ path('admin_site_edit', {'id': site.id}) }}" class="btn btn-sm btn-warning" title="Modifier"><i class="fas fa-edit"></i></a>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="4">Aucun site trouvé.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

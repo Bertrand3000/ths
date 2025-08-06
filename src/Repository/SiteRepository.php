@@ -34,4 +34,24 @@ class SiteRepository extends ServiceEntityRepository
             ->getResult()
         ;
     }
+
+    /**
+     * @param string|null $q
+     * @param string $sort
+     * @param string $direction
+     * @return Site[]
+     */
+    public function search(?string $q, string $sort, string $direction): array
+    {
+        $qb = $this->createQueryBuilder('s');
+
+        if ($q) {
+            $qb->andWhere('s.nom LIKE :q')
+                ->setParameter('q', '%' . $q . '%');
+        }
+
+        $qb->orderBy($sort, $direction);
+
+        return $qb->getQuery()->getResult();
+    }
 }
