@@ -1,0 +1,49 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Statistiques - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.attributes.get('_route') == 'stats_index' %}active{% endif %}" href="{{ path('stats_index') }}">
+                            <i class="fas fa-home"></i> Vue d'ensemble
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.attributes.get('_route') == 'stats_dashboard' %}active{% endif %}" href="{{ path('stats_dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard Temps Réel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.attributes.get('_route') == 'stats_reports' %}active{% endif %}" href="{{ path('stats_reports') }}">
+                            <i class="fas fa-chart-line"></i> Rapports Historiques
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.attributes.get('_route') == 'stats_exports' %}active{% endif %}" href="{{ path('stats_exports') }}">
+                            <i class="fas fa-file-export"></i> Exports
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">{% block stats_title %}{% endblock %}</h1>
+            </div>
+            {% block stats_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {# Add Chart.js CDN #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}

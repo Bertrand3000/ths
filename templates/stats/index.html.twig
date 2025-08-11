@@ -1,0 +1,47 @@
+{% extends 'stats/base_stats.html.twig' %}
+
+{% block stats_title %}Vue d'ensemble{% endblock %}
+
+{% block stats_content %}
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Agents Présents</h5>
+                    <h2 class="text-primary">{{ realTimeStats.agentsPresents }}</h2>
+                    <small class="text-muted">sur {{ realTimeStats.totalPostesFlex }} postes flex</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Taux d'Occupation Global</h5>
+                    <h2 class="text-success">{{ realTimeStats.tauxOccupationGlobal }}%</h2>
+                    <small class="text-muted">postes flex occupés</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Postes Libres</h5>
+                    <h2 class="text-info">{{ realTimeStats.postesLibres }}</h2>
+                    <small class="text-muted">disponibles actuellement</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col">
+            <h3>Bienvenue dans la section des statistiques</h3>
+            <p>Utilisez le menu de gauche pour naviguer entre les différentes sections :</p>
+            <ul>
+                <li><strong>Dashboard Temps Réel :</strong> Visualisez l'activité actuelle avec des graphiques interactifs.</li>
+                <li><strong>Rapports Historiques :</strong> Analysez les tendances passées avec des filtres par date.</li>
+                <li><strong>Exports :</strong> Téléchargez les données brutes pour une analyse externe.</li>
+            </ul>
+        </div>
+    </div>
+{% endblock %}
