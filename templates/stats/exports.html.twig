@@ -1,0 +1,54 @@
+{% extends 'stats/base_stats.html.twig' %}
+
+{% block stats_title %}Exports de Données{% endblock %}
+
+{% block stats_content %}
+<div class="card">
+    <div class="card-header">
+        Exporter les données statistiques
+    </div>
+    <div class="card-body">
+        <p>Cette section vous permettra de télécharger les données brutes des statistiques pour une analyse approfondie dans des outils externes comme Excel ou PowerBI.</p>
+
+        <div class="mb-3">
+            <h4>Export de l'historique d'occupation</h4>
+            <p>Exportez le nombre d'agents uniques présents par jour, semaine ou mois pour la période de votre choix.</p>
+            <form method="POST" action="{{ path('stats_export_occupancy_history') }}">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="start" class="form-label">Date de début</label>
+                        <input type="date" id="start" name="start" value="{{ "now"|date_modify("-30 days")|date("Y-m-d") }}" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end" class="form-label">Date de fin</label>
+                        <input type="date" id="end" name="end" value="{{ "now"|date("Y-m-d") }}" class="form-control" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="granularity" class="form-label">Granularité</label>
+                        <select name="granularity" id="granularity" class="form-select">
+                            <option value="day" selected>Jour</option>
+                            <option value="week">Semaine</option>
+                            <option value="month">Mois</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Export CSV</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <hr>
+
+        <div class="mb-3">
+            <h4>Export de l'historique de présence d'un agent</h4>
+            <p>Exportez l'historique complet des connexions pour un agent spécifique.</p>
+            <form method="POST" action="#">
+                 <p class="text-muted">Cette fonctionnalité sera implémentée dans une future version.</p>
+                <button type="submit" class="btn btn-secondary" disabled>Export CSV (Bientôt disponible)</button>
+            </form>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends 'stats/base_stats.html.twig' %}
+
+{% block stats_title %}Dashboard Temps Réel{% endblock %}
+
+{% block stats_content %}
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Agents Présents</h5>
+                    <h2 class="text-primary">{{ realTimeStats.agentsPresents }}</h2>
+                    <small class="text-muted">sur {{ realTimeStats.totalPostesFlex }} postes flex</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Taux d'Occupation Global</h5>
+                    <h2 class="text-success">{{ realTimeStats.tauxOccupationGlobal }}%</h2>
+                    <small class="text-muted">postes flex occupés</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Postes Libres</h5>
+                    <h2 class="text-info">{{ realTimeStats.postesLibres }}</h2>
+                    <small class="text-muted">disponibles actuellement</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Taux d'occupation global
+                </div>
+                <div class="card-body">
+                    <canvas id="globalOccupancyChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Occupation par service
+                </div>
+                <div class="card-body">
+                    <canvas id="serviceOccupancyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 1. Global Occupancy Chart (Doughnut)
+            const globalCtx = document.getElementById('globalOccupancyChart').getContext('2d');
+            const realTimeStats = {{ realTimeStats|json_encode|raw }};
+
+            new Chart(globalCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Occupés', 'Libres'],
+                    datasets: [{
+                        label: 'Taux d\'occupation',
+                        data: [realTimeStats.agentsPresents, realTimeStats.postesLibres],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Postes Flex en Temps Réel'
+                        }
+                    }
+                }
+            });
+
+            // 2. Service Occupancy Chart (Bar)
+            const serviceCtx = document.getElementById('serviceOccupancyChart').getContext('2d');
+            const statsParService = realTimeStats.statsParService;
+            const serviceLabels = statsParService.map(s => s.service.nom);
+            const serviceOccupancyData = statsParService.map(s => s.taux_occupation);
+            const serviceColors = statsParService.map(s => {
+                if (s.taux_occupation > 80) return 'rgba(255, 99, 132, 0.8)';
+                if (s.taux_occupation > 50) return 'rgba(255, 206, 86, 0.8)';
+                return 'rgba(75, 192, 192, 0.8)';
+            });
+
+            new Chart(serviceCtx, {
+                type: 'bar',
+                data: {
+                    labels: serviceLabels,
+                    datasets: [{
+                        label: '% d\'occupation',
+                        data: serviceOccupancyData,
+                        backgroundColor: serviceColors,
+                        borderColor: serviceColors.map(c => c.replace('0.8', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'y', // Horizontal bar chart
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Taux d\'occupation par service'
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+{% endblock %}
