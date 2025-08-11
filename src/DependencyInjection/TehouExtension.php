@@ -17,6 +17,10 @@ class TehouExtension extends Extension
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
+        // Set api parameters
+        $container->setParameter('tehou.api.enabled', $config['api']['enabled']);
+        $container->setParameter('tehou.api.token', $config['api']['token']);
+
         // Set debug parameters
         $container->setParameter('tehou.debug.enabled', $config['debug']['enabled']);
         $container->setParameter('tehou.debug.token', $config['debug']['token']);
