@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\MaterielRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: MaterielRepository::class)]
 class Materiel
@@ -11,6 +12,7 @@ class Materiel
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['materiel:read'])]
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'materiels')]
@@ -18,12 +20,15 @@ class Materiel
     private ?Position $position = null;
 
     #[ORM\Column(length: 10, nullable: true)]
+    #[Groups(['materiel:read'])]
     private ?string $type = null;
 
     #[ORM\Column]
+    #[Groups(['materiel:read'])]
     private ?bool $special = false;
 
     #[ORM\Column(length: 20, unique: true)]
+    #[Groups(['materiel:read'])]
     private ?string $codebarre = null;
 
     public function getId(): ?int

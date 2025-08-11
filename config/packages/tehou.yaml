@@ -1,4 +1,7 @@
 tehou:
+    api:
+        enabled: true
+        token: "UN_TOKEN_API_SECRET_A_CHANGER"
     debug:
         enabled: true
         token: "DEBUG_TOKEN_CHANGE_IN_PROD"
