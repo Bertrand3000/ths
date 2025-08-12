@@ -16,6 +16,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class ArchitectureService
 {
+    private string $nomsFile;
+    private string $prenomsFile;
+
     public array $sites = [
         ['nom' => 'Siège', 'flex' => true],
         ['nom' => 'Abbeville', 'flex' => false],
@@ -49,9 +52,12 @@ class ArchitectureService
         private readonly EntityManagerInterface $em,
         private readonly SiteRepository $siteRepository,
         private readonly AgentPositionRepository $agentPositionRepository,
-        #[Autowire('%kernel.project_dir%/src/Data/noms.txt')] private readonly string $nomsFile,
-        #[Autowire('%kernel.project_dir%/src/Data/prenoms.txt')] private readonly string $prenomsFile
+        ParameterBagInterface $parameterBag = null
     ) {
+        // Valeurs par défaut (ajustez le chemin selon votre structure)
+        $projectDir = $parameterBag?->get('kernel.project_dir') ?? __DIR__ . '/../../';
+        $this->nomsFile = $projectDir . '/src/Data/noms.txt';
+        $this->prenomsFile = $projectDir . '/src/Data/prenoms.txt';
     }
 
     /**

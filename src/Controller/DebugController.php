@@ -14,13 +14,19 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/api/debug')]
 class DebugController extends AbstractController
 {
+    private bool $debugEnabled = true;
+    private string $debugToken = 'DEBUG_TOKEN_CHANGE_IN_PROD';
+
     public function __construct(
         private readonly PositionService $positionService,
         private readonly ArchitectureService $architectureService,
         private readonly EntityManagerInterface $em,
-        #[Autowire('%tehou.debug.enabled%')] private readonly bool $debugEnabled,
-        #[Autowire('%tehou.debug.token%')] private readonly string $debugToken
+        ParameterBagInterface $parameterBag = null
     ) {
+        if ($parameterBag) {
+            $this->debugEnabled = $parameterBag->get('tehou.debug.enabled', true);
+            $this->debugToken = $parameterBag->get('tehou.debug.token', 'DEBUG_TOKEN_CHANGE_IN_PROD');
+        }
     }
 
     /**

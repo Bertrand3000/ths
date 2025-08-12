@@ -19,24 +19,20 @@ use Psr\Log\LoggerInterface;
 #[Route('/api')]
 class ApiController extends AbstractController
 {
-    /**
-     * Constructeur du contrôleur de l'API.
-     *
-     * @param PositionService $positionService Service pour la gestion des positions.
-     * @param ArchitectureService $architectureService Service pour la gestion de l'architecture.
-     * @param EntityManagerInterface $em Le gestionnaire d'entités.
-     * @param LoggerInterface $logger Le service de logging.
-     * @param bool $apiEnabled Indique si l'API est activée.
-     * @param string $apiToken Le token d'authentification pour l'API.
-     */
+    private bool $apiEnabled = true;
+    private string $apiToken = 'UN_TOKEN_API_SECRET_A_CHANGER';
+
     public function __construct(
         private readonly PositionService $positionService,
         private readonly ArchitectureService $architectureService,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
-        #[Autowire('%tehou.api.enabled%')] private readonly bool $apiEnabled,
-        #[Autowire('%tehou.api.token%')] private readonly string $apiToken
+        ParameterBagInterface $parameterBag = null
     ) {
+        if ($parameterBag) {
+            $this->apiEnabled = $parameterBag->get('tehou.api.enabled', true);
+            $this->apiToken = $parameterBag->get('tehou.api.token', 'UN_TOKEN_API_SECRET_A_CHANGER');
+        }
     }
 
     /**
