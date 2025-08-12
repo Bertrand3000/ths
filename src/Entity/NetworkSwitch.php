@@ -35,9 +35,6 @@ class NetworkSwitch
     #[ORM\OneToMany(mappedBy: 'networkSwitch', targetEntity: Position::class)]
     private Collection $positions;
 
-    #[ORM\OneToMany(mappedBy: 'switch', targetEntity: Log::class)]
-    private Collection $logs;
-
     public function __construct()
     {
         $this->positions = new ArrayCollection();
