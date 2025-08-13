@@ -52,12 +52,7 @@ class StatsControllerTest extends WebTestCase
         ]);
 
         $this->assertResponseIsSuccessful();
-        $this->assertTrue(
-            $client->getResponse()->headers->contains(
-                'Content-Type',
-                'text/csv'
-            )
-        );
+        $this->assertEquals('text/csv; charset=UTF-8', $client->getResponse()->headers->get('Content-Type'));
         $this->assertStringContainsString(
             'attachment; filename="export_occupation_20230101_20230131.csv"',
             $client->getResponse()->headers->get('Content-Disposition')

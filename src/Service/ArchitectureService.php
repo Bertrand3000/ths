@@ -3,6 +3,9 @@
 namespace App\Service;
 
 use App\Entity\Agent;
+use App\Entity\AgentConnexion;
+use App\Entity\AgentHistoriqueConnexion;
+use App\Entity\AgentPosition;
 use App\Entity\Etage;
 use App\Entity\Materiel;
 use App\Entity\NetworkSwitch;
@@ -13,6 +16,7 @@ use App\Repository\AgentPositionRepository;
 use App\Repository\SiteRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 class ArchitectureService
 {
@@ -188,6 +192,7 @@ class ArchitectureService
             $this->em->persist($etage);
 
             $this->createServices($etage);
+            $this->em->flush(); // Flush pour que les services soient disponibles
 
             if ($site->getNom() === 'Siège') {
                 $this->createSwitches($etage);

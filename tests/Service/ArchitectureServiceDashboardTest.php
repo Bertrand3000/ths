@@ -19,12 +19,14 @@ class ArchitectureServiceDashboardTest extends TestCase
     {
         $this->agentPositionRepository = $this->createMock(AgentPositionRepository::class);
 
+        $parameterBag = $this->createMock(\Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface::class);
+        $parameterBag->method('get')->willReturn(__DIR__ . '/../../');
+        
         $this->architectureService = new ArchitectureService(
             $this->createMock(EntityManagerInterface::class),
             $this->createMock(\App\Repository\SiteRepository::class),
             $this->agentPositionRepository,
-            '',
-            ''
+            $parameterBag
         );
     }
 

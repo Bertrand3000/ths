@@ -4,6 +4,10 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    tehou.syslog.lock_timeout: 300
+    tehou.syslog.batch_size: 1000
+    tehou.syslog.max_errors: 100
+    tehou.syslog.max_processing_time: 120
 
 services:
     # default configuration for services in *this* file
@@ -32,3 +36,9 @@ when@test:
     parameters:
         tehou.api.token: 'UN_TOKEN_API_SECRET_A_CHANGER'
         tehou.api.enabled: true
+        tehou.debug.token: 'DEBUG_TOKEN_CHANGE_IN_PROD'
+        tehou.debug.enabled: true
+        tehou.syslog.lock_timeout: 300
+        tehou.syslog.batch_size: 1000
+        tehou.syslog.max_errors: 100
+        tehou.syslog.max_processing_time: 120

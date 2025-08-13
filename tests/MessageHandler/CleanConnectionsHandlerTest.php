@@ -12,7 +12,7 @@ class CleanConnectionsHandlerTest extends TestCase
     public function testInvoke()
     {
         $positionService = $this->createMock(PositionService::class);
-        $positionService->expects($this->once())->method('nettoyerConnexions');
+        $positionService->expects($this->once())->method('cleanExpiredPositions');
 
         $handler = new CleanConnectionsHandler($positionService);
         $handler(new CleanConnections());

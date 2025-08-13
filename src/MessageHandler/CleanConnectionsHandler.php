@@ -15,6 +15,6 @@ class CleanConnectionsHandler
 
     public function __invoke(CleanConnections $message): void
     {
-        $this->positionService->nettoyerConnexions();
+        $this->positionService->cleanExpiredPositions();
     }
 }

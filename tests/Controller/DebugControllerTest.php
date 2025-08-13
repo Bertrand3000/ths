@@ -16,9 +16,27 @@ class DebugControllerTest extends WebTestCase
         parent::setUp();
         $this->client = static::createClient();
 
-        // Ensure the database is initialized
-        $architectureService = static::getContainer()->get(ArchitectureService::class);
-        $architectureService->initialiser();
+        // Créer les données de test manuellement au lieu d'utiliser initialiser()
+        $entityManager = static::getContainer()->get('doctrine')->getManager();
+        
+        // Créer un site
+        $site = new \App\Entity\Site();
+        $site->setNom('Site Test')->setFlex(true);
+        $entityManager->persist($site);
+        
+        // Créer un étage
+        $etage = new \App\Entity\Etage();
+        $etage->setSite($site)->setNom('Etage Test')
+              ->setLargeur(1000)->setHauteur(1000)
+              ->setArriereplan('test.jpg');
+        $entityManager->persist($etage);
+        
+        // Créer un service
+        $service = new \App\Entity\Service();
+        $service->setEtage($etage)->setNom('Service Test');
+        $entityManager->persist($service);
+        
+        $entityManager->flush();
     }
 
     public function testEndpointsAreProtected()
@@ -77,10 +95,15 @@ class DebugControllerTest extends WebTestCase
 
     public function testSimulatePosition()
     {
-        // Find an existing agent from the initialized data
+        // Create a temporary agent for this test
         $entityManager = static::getContainer()->get('doctrine.orm.entity_manager');
-        $agent = $entityManager->getRepository(\App\Entity\Agent::class)->findOneBy([]);
-        $this->assertNotNull($agent, "No agent found in the database to run the test.");
+        $service = $entityManager->getRepository(\App\Entity\Service::class)->findOneBy([]);
+        
+        $agent = new \App\Entity\Agent();
+        $agent->setNumagent('99996')->setNom('Temp')->setPrenom('Agent')
+              ->setCivilite('M.')->setService($service);
+        $entityManager->persist($agent);
+        $entityManager->flush();
 
         $this->client->request(
             'POST',

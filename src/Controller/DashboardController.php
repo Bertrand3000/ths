@@ -3,15 +3,18 @@
 namespace App\Controller;
 
 use App\Entity\Etage;
+use App\Repository\EtageRepository;
 use App\Service\ArchitectureService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 
 class DashboardController extends AbstractController
 {
     public function __construct(
-        private readonly ArchitectureService $architectureService
+        private readonly ArchitectureService $architectureService,
+        private readonly EtageRepository $etageRepository
     ) {
     }
 
@@ -30,8 +33,13 @@ class DashboardController extends AbstractController
     }
 
     #[Route('/dashboard/etage/{id}', name: 'dashboard_etage')]
-    public function etage(Etage $etage): Response
+    public function etage(int $id): Response
     {
+        $etage = $this->etageRepository->find($id);
+        if (!$etage) {
+            throw new NotFoundHttpException('Étage non trouvé');
+        }
+        
         $services = $this->architectureService->getServices($etage);
         $servicesData = [];
 

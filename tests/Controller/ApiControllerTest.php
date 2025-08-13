@@ -2,6 +2,7 @@
 
 namespace App\Tests\Controller;
 
+use App\Tests\Utils\TestTools;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -9,11 +10,21 @@ class ApiControllerTest extends WebTestCase
 {
     private $client;
     private $token;
+    private $testTools;
+    private $testPositionId;
 
     protected function setUp(): void
     {
         $this->client = static::createClient();
         $this->token = static::getContainer()->getParameter('tehou.api.token');
+        
+        // Créer les données de test nécessaires
+        $container = static::getContainer();
+        $this->testTools = new TestTools($container);
+        
+        // Créer une position et récupérer son ID pour les tests inventaire
+        $position = $this->testTools->createTestPosition();
+        $this->testPositionId = $position->getId();
     }
 
     private function getAuthHeaders(): array
@@ -79,8 +90,8 @@ class ApiControllerTest extends WebTestCase
 
     public function testGetInventaireByPositionIdSuccess()
     {
-        // This test assumes a position with ID 1 exists
-        $this->client->request('GET', '/api/inventaire/get?position_id=1', [], [], $this->getAuthHeaders());
+        // Use the position created in setUp
+        $this->client->request('GET', '/api/inventaire/get?position_id=' . $this->testPositionId, [], [], $this->getAuthHeaders());
         $this->assertEquals(Response::HTTP_OK, $this->client->getResponse()->getStatusCode());
         $response = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertEquals('success', $response['status']);
@@ -95,11 +106,12 @@ class ApiControllerTest extends WebTestCase
 
     public function testSetInventaireSuccess()
     {
+        $uniqueId = uniqid('test_');
         $payload = [
-            'position_id' => 1,
+            'position_id' => $this->testPositionId,
             'materiel' => [
-                ['type' => 'dock', 'codebarre' => 'TEST-DOCK-001', 'special' => false],
-                ['type' => 'clavier', 'codebarre' => 'TEST-KEYB-001', 'special' => true],
+                ['type' => 'dock', 'codebarre' => 'TEST-DOCK-' . $uniqueId, 'special' => false],
+                ['type' => 'clavier', 'codebarre' => 'TEST-KEYB-' . $uniqueId, 'special' => true],
             ]
         ];
         $this->client->request('POST', '/api/inventaire/set', [], [], $this->getAuthHeaders(), json_encode($payload));
@@ -109,9 +121,10 @@ class ApiControllerTest extends WebTestCase
         $this->assertEquals('Inventory updated', $response['message']);
 
         // Verify the data was actually changed
-        $this->client->request('GET', '/api/inventaire/get?position_id=1', [], [], $this->getAuthHeaders());
+        $this->client->request('GET', '/api/inventaire/get?position_id=' . $this->testPositionId, [], [], $this->getAuthHeaders());
         $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertIsArray($response['data']['materiel']);
         $this->assertCount(2, $response['data']['materiel']);
-        $this->assertEquals('TEST-DOCK-001', $response['data']['materiel'][0]['codebarre']);
+        $this->assertEquals('TEST-DOCK-' . $uniqueId, $response['data']['materiel'][0]['codebarre']);
     }
 }

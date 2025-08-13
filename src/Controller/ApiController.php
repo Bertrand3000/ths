@@ -7,6 +7,7 @@ use App\Service\PositionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
@@ -223,10 +224,13 @@ class ApiController extends AbstractController
 
             $materiels = $position->getMateriels();
 
+            $serializer = $this->container->get('serializer');
+            $serializedMateriels = $serializer->serialize($materiels, 'json', ['groups' => 'materiel:read']);
+            
             return $this->apiResponse(
                 'success',
                 'Inventory retrieved.',
-                ['materiel' => $this->json($materiels, 200, [], ['groups' => 'materiel:read'])->getData()]
+                ['materiel' => json_decode($serializedMateriels, true)]
             );
 
         } catch (\Exception $e) {
@@ -262,12 +266,13 @@ class ApiController extends AbstractController
                 return $this->apiResponse('error', "Position with id $positionId not found.", null, 404);
             }
 
-            $this->em->transactional(function ($em) use ($position, $materielsData) {
+            $this->em->beginTransaction();
+            try {
                 // Supprimer l'ancien matériel
                 foreach ($position->getMateriels() as $materiel) {
-                    $em->remove($materiel);
+                    $this->em->remove($materiel);
                 }
-                $em->flush();
+                $this->em->flush();
 
                 // Ajouter le nouveau matériel
                 foreach ($materielsData as $materielData) {
@@ -279,9 +284,15 @@ class ApiController extends AbstractController
                     $materiel->setType($materielData['type']);
                     $materiel->setCodebarre($materielData['codebarre']);
                     $materiel->setSpecial($materielData['special'] ?? false);
-                    $em->persist($materiel);
+                    $this->em->persist($materiel);
                 }
-            });
+                
+                $this->em->flush();
+                $this->em->commit();
+            } catch (\Exception $e) {
+                $this->em->rollback();
+                throw $e;
+            }
 
             return $this->apiResponse('success', 'Inventory updated', ['position_id' => $positionId]);
 

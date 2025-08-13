@@ -11,9 +11,8 @@ use Symfony\Component\Routing\Annotation\Route;
 /**
  * Contrôleur pour la section des statistiques.
  * Fournit les pages web et les endpoints de données pour les statistiques d'utilisation.
- *
- * @Route("/stats")
  */
+#[Route('/stats')]
 class StatsController extends AbstractController
 {
     private StatsService $statsService;
@@ -25,9 +24,8 @@ class StatsController extends AbstractController
 
     /**
      * Affiche la page d'accueil des statistiques avec une vue d'ensemble.
-     *
-     * @Route("/", name="stats_index", methods={"GET"})
      */
+    #[Route('/', name: 'stats_index', methods: ['GET'])]
     public function index(): Response
     {
         $realTimeStats = $this->statsService->getRealTimeStats();
@@ -39,9 +37,8 @@ class StatsController extends AbstractController
 
     /**
      * Affiche le dashboard temps réel interactif.
-     *
-     * @Route("/dashboard", name="stats_dashboard", methods={"GET"})
      */
+    #[Route('/dashboard', name: 'stats_dashboard', methods: ['GET'])]
     public function dashboard(): Response
     {
         $realTimeStats = $this->statsService->getRealTimeStats();
@@ -53,9 +50,8 @@ class StatsController extends AbstractController
 
     /**
      * Affiche la page des rapports détaillés avec filtres.
-     *
-     * @Route("/reports", name="stats_reports", methods={"GET"})
      */
+    #[Route('/reports', name: 'stats_reports', methods: ['GET'])]
     public function reports(Request $request): Response
     {
         $start = $request->query->get('start') ? new \DateTime($request->query->get('start')) : new \DateTime('-30 days');
@@ -73,9 +69,8 @@ class StatsController extends AbstractController
 
     /**
      * Affiche la page pour l'export de données.
-     *
-     * @Route("/exports", name="stats_exports", methods={"GET"})
      */
+    #[Route('/exports', name: 'stats_exports', methods: ['GET'])]
     public function exports(): Response
     {
         return $this->render('stats/exports.html.twig');
@@ -83,14 +78,13 @@ class StatsController extends AbstractController
 
     /**
      * Gère l'export CSV de l'historique d'occupation.
-     *
-     * @Route("/export/occupancy-history", name="stats_export_occupancy_history", methods={"POST"})
      */
+    #[Route('/export/occupancy-history', name: 'stats_export_occupancy_history', methods: ['POST'])]
     public function exportOccupancyHistory(Request $request): Response
     {
-        $start = new \DateTime($request.request->get('start', '-30 days'));
-        $end = new \DateTime($request.request->get('end', 'now'));
-        $granularity = $request.request->get('granularity', 'day');
+        $start = new \DateTime($request->request->get('start', '-30 days'));
+        $end = new \DateTime($request->request->get('end', 'now'));
+        $granularity = $request->request->get('granularity', 'day');
 
         $data = $this->statsService->getOccupancyHistory($start, $end, $granularity);
 

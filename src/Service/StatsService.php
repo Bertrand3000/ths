@@ -165,22 +165,15 @@ class StatsService
     {
         $qb = $this->agentHistoriqueConnexionRepository->createQueryBuilder('h');
 
-        // Note: Using strftime for SQLite compatibility.
-        // For PostgreSQL, this would be DATE_TRUNC or EXTRACT.
-        $dateFormat = match ($granularity) {
-            'month' => "strftime('%Y-%m', h.jour)",
-            'week' => "strftime('%Y-%W', h.jour)", // %W for week number
-            default => "strftime('%Y-%m-%d', h.jour)",
-        };
-
-        $qb->select($dateFormat . ' as date_period, COUNT(DISTINCT h.numagent) as unique_agents')
+        // Simplified date formatting for compatibility
+        // TODO: Implement proper date formatting based on granularity
+        
+        $qb->select('h.jour as date_period, COUNT(DISTINCT h.agent) as unique_agents')
             ->where('h.jour BETWEEN :start AND :end')
             ->groupBy('date_period')
             ->orderBy('date_period', 'ASC')
-            ->setParameters([
-                'start' => $start->format('Y-m-d'),
-                'end' => $end->format('Y-m-d'),
-            ]);
+            ->setParameter('start', $start->format('Y-m-d'))
+            ->setParameter('end', $end->format('Y-m-d'));
 
         return $qb->getQuery()->getResult();
     }

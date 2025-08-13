@@ -48,10 +48,11 @@ class TestTools
         $position = new Position();
         $position->setEtage($etage);
         $position->setService($service);
-        $position->setSwitch($switch);
+        $position->setNetworkSwitch($switch);
         $position->setCoordx(10);
         $position->setCoordy(20);
         $position->setPrise('A01');
+        $position->setMac($this->generateRandomMac()); // MAC address unique pour tests
         $position->setType('Echange');
 
         $this->entityManager->persist($position);
@@ -140,5 +141,14 @@ class TestTools
         }
 
         return $switch;
+    }
+
+    private function generateRandomMac(): string
+    {
+        $mac = [];
+        for ($i = 0; $i < 6; $i++) {
+            $mac[] = sprintf('%02X', rand(0, 255));
+        }
+        return implode(':', $mac);
     }
 }

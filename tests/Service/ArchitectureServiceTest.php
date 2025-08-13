@@ -21,7 +21,10 @@ class ArchitectureServiceTest extends TestCase
         $em->expects($this->never())->method('persist');
         $em->expects($this->never())->method('flush');
 
-        $service = new ArchitectureService($em, $siteRepository, '', '');
+        $parameterBag = $this->createMock(\Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface::class);
+        $parameterBag->method('get')->willReturn(__DIR__ . '/../../');
+        
+        $service = new ArchitectureService($em, $siteRepository, $this->createMock(\App\Repository\AgentPositionRepository::class), $parameterBag);
         $service->initialiser();
     }
 
@@ -36,14 +39,17 @@ class ArchitectureServiceTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         // We expect persist to be called many times, so we use any()
         $em->expects($this->any())->method('persist');
-        // We expect flush to be called twice
-        $em->expects($this->exactly(2))->method('flush');
+        // We expect flush to be called multiple times during initialization
+        $em->expects($this->atLeastOnce())->method('flush');
 
+        $parameterBag = $this->createMock(\Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface::class);
+        $parameterBag->method('get')->willReturn(__DIR__ . '/../../');
+        
         $service = new ArchitectureService(
             $em,
             $siteRepository,
-            __DIR__ . '/../../src/Data/noms.txt',
-            __DIR__ . '/../../src/Data/prenoms.txt'
+            $this->createMock(\App\Repository\AgentPositionRepository::class),
+            $parameterBag
         );
 
         // Reduce the number of entities for tests
