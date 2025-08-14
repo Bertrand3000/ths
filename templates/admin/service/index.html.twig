@@ -2,12 +2,13 @@
 
 {% block title %}Gestion des Services{% endblock %}
 
-{% macro sortable_link(label, field) %}
-    {% set new_direction = (sort == field and direction == 'asc') ? 'desc' : 'asc' %}
-    <a href="{{ path('admin_service_index', app.request.query.all|merge({sort: field, direction: new_direction, page: 1})) }}">
+{% macro sortable_link(label, field, current_sort, current_direction) %}
+    {% set new_direction = (current_sort == field and current_direction == 'asc') ? 'desc' : 'asc' %}
+    {% set query_params = app.request ? app.request.query.all : {} %}
+    <a href="{{ path('admin_service_index', query_params|merge({sort: field, direction: new_direction, page: 1})) }}">
         {{ label }}
-        {% if sort == field %}
-            <i class="fas fa-sort-{{ direction == 'asc' ? 'up' : 'down' }}"></i>
+        {% if current_sort == field %}
+            <i class="fas fa-sort-{{ current_direction == 'asc' ? 'up' : 'down' }}"></i>
         {% endif %}
     </a>
 {% endmacro %}
@@ -49,10 +50,10 @@
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>{{ _self.sortable_link('ID', 's.id') }}</th>
-                <th>{{ _self.sortable_link('Nom', 's.nom') }}</th>
-                <th>{{ _self.sortable_link('Étage', 'e.nom') }}</th>
-                <th>{{ _self.sortable_link('Site', 'si.nom') }}</th>
+                <th>{{ _self.sortable_link('ID', 's.id', sort, direction) }}</th>
+                <th>{{ _self.sortable_link('Nom', 's.nom', sort, direction) }}</th>
+                <th>{{ _self.sortable_link('Étage', 'e.nom', sort, direction) }}</th>
+                <th>{{ _self.sortable_link('Site', 'si.nom', sort, direction) }}</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -80,15 +81,15 @@
         <nav>
             <ul class="pagination">
                 <li class="page-item {{ page <= 1 ? 'disabled' : '' }}">
-                    <a class="page-link" href="{{ path('admin_service_index', app.request.query.all|merge({page: page - 1})) }}">Précédent</a>
+                    <a class="page-link" href="{{ path('admin_service_index', (app.request ? app.request.query.all : {})|merge({page: page - 1})) }}">Précédent</a>
                 </li>
                 {% for i in 1..maxPage %}
                     <li class="page-item {{ i == page ? 'active' : '' }}">
-                        <a class="page-link" href="{{ path('admin_service_index', app.request.query.all|merge({page: i})) }}">{{ i }}</a>
+                        <a class="page-link" href="{{ path('admin_service_index', (app.request ? app.request.query.all : {})|merge({page: i})) }}">{{ i }}</a>
                     </li>
                 {% endfor %}
                 <li class="page-item {{ page >= maxPage ? 'disabled' : '' }}">
-                    <a class="page-link" href="{{ path('admin_service_index', app.request.query.all|merge({page: page + 1})) }}">Suivant</a>
+                    <a class="page-link" href="{{ path('admin_service_index', (app.request ? app.request.query.all : {})|merge({page: page + 1})) }}">Suivant</a>
                 </li>
             </ul>
         </nav>

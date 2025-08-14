@@ -142,8 +142,14 @@ class AdminController extends AbstractController
     }
 
     #[Route('/site/{id}', name: 'admin_site_show', methods: ['GET'])]
-    public function siteShow(Site $site): Response
+    public function siteShow(int $id): Response
     {
+        $site = $this->entityManager->getRepository(Site::class)->find($id);
+        
+        if (!$site) {
+            throw $this->createNotFoundException('Site non trouvé');
+        }
+
         return $this->render('admin/site/show.html.twig', [
             'site' => $site,
             'breadcrumbs' => [
@@ -154,8 +160,13 @@ class AdminController extends AbstractController
     }
 
     #[Route('/site/{id}/edit', name: 'admin_site_edit', methods: ['GET', 'POST'])]
-    public function siteEdit(Request $request, Site $site): Response
+    public function siteEdit(Request $request, int $id): Response
     {
+        $site = $this->entityManager->getRepository(Site::class)->find($id);
+        
+        if (!$site) {
+            throw $this->createNotFoundException('Site non trouvé');
+        }
         $form = $this->createForm(SiteType::class, $site);
         $form->handleRequest($request);
 
@@ -184,8 +195,13 @@ class AdminController extends AbstractController
     }
 
     #[Route('/site/{id}', name: 'admin_site_delete', methods: ['POST'])]
-    public function siteDelete(Request $request, Site $site): Response
+    public function siteDelete(Request $request, int $id): Response
     {
+        $site = $this->entityManager->getRepository(Site::class)->find($id);
+        
+        if (!$site) {
+            throw $this->createNotFoundException('Site non trouvé');
+        }
         if ($this->isCsrfTokenValid('delete'.$site->getId(), $request->request->get('_token'))) {
             try {
                 $this->architectureService->deleteSite($site->getId());
@@ -292,8 +308,13 @@ class AdminController extends AbstractController
      * Affiche les détails d'un étage et ses services.
      */
     #[Route('/etage/{id}', name: 'admin_etage_show', methods: ['GET'])]
-    public function etageShow(Etage $etage): Response
+    public function etageShow(int $id): Response
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            throw $this->createNotFoundException('Étage non trouvé');
+        }
         return $this->render('admin/etage/show.html.twig', [
             'etage' => $etage,
             'breadcrumbs' => [
@@ -308,8 +329,13 @@ class AdminController extends AbstractController
      * Modifie un étage existant.
      */
     #[Route('/etage/{id}/edit', name: 'admin_etage_edit', methods: ['GET', 'POST'])]
-    public function etageEdit(Request $request, Etage $etage): Response
+    public function etageEdit(Request $request, int $id): Response
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            throw $this->createNotFoundException('Étage non trouvé');
+        }
         $form = $this->createForm(EtageType::class, $etage);
         $form->handleRequest($request);
 
@@ -345,8 +371,13 @@ class AdminController extends AbstractController
      * Supprime un étage, avec une vérification des services enfants.
      */
     #[Route('/etage/{id}', name: 'admin_etage_delete', methods: ['POST'])]
-    public function etageDelete(Request $request, Etage $etage): Response
+    public function etageDelete(Request $request, int $id): Response
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            throw $this->createNotFoundException('Étage non trouvé');
+        }
         if ($this->isCsrfTokenValid('delete'.$etage->getId(), $request->request->get('_token'))) {
             if ($etage->getServices()->count() > 0) {
                 $this->addFlash('error', 'Impossible de supprimer cet étage car il contient des services. Veuillez d\'abord supprimer les services associés.');
@@ -454,8 +485,13 @@ class AdminController extends AbstractController
      * Affiche les détails d'un service.
      */
     #[Route('/service/{id}', name: 'admin_service_show', methods: ['GET'])]
-    public function serviceShow(Service $service): Response
+    public function serviceShow(int $id): Response
     {
+        $service = $this->entityManager->getRepository(Service::class)->find($id);
+        
+        if (!$service) {
+            throw $this->createNotFoundException('Service non trouvé');
+        }
         return $this->render('admin/service/show.html.twig', [
             'service' => $service,
             'breadcrumbs' => [
@@ -471,8 +507,13 @@ class AdminController extends AbstractController
      * Modifie un service existant.
      */
     #[Route('/service/{id}/edit', name: 'admin_service_edit', methods: ['GET', 'POST'])]
-    public function serviceEdit(Request $request, Service $service): Response
+    public function serviceEdit(Request $request, int $id): Response
     {
+        $service = $this->entityManager->getRepository(Service::class)->find($id);
+        
+        if (!$service) {
+            throw $this->createNotFoundException('Service non trouvé');
+        }
         $form = $this->createForm(ServiceType::class, $service);
         $form->handleRequest($request);
 
@@ -506,8 +547,13 @@ class AdminController extends AbstractController
      * Supprime un service.
      */
     #[Route('/service/{id}', name: 'admin_service_delete', methods: ['POST'])]
-    public function serviceDelete(Request $request, Service $service): Response
+    public function serviceDelete(Request $request, int $id): Response
     {
+        $service = $this->entityManager->getRepository(Service::class)->find($id);
+        
+        if (!$service) {
+            throw $this->createNotFoundException('Service non trouvé');
+        }
         if ($this->isCsrfTokenValid('delete'.$service->getId(), $request->request->get('_token'))) {
             try {
                 $this->architectureService->deleteService($service->getId());
@@ -525,8 +571,13 @@ class AdminController extends AbstractController
 
     //region Position Management
     #[Route('/etage/{id}/positions/nearest-service', name: 'admin_etage_nearest_service', methods: ['GET'])]
-    public function etageNearestService(Request $request, Etage $etage): JsonResponse
+    public function etageNearestService(Request $request, int $id): JsonResponse
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            return new JsonResponse(['error' => 'Étage non trouvé'], 404);
+        }
         $x = $request->query->getInt('x');
         $y = $request->query->getInt('y');
 
@@ -538,8 +589,13 @@ class AdminController extends AbstractController
     }
 
     #[Route('/etage/{id}/positions', name: 'admin_etage_positions', methods: ['GET'])]
-    public function etagePositions(Etage $etage): Response
+    public function etagePositions(int $id): Response
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            throw $this->createNotFoundException('Étage non trouvé');
+        }
         $uploadForm = $this->createForm(PlanType::class, null, [
             'action' => $this->generateUrl('admin_etage_upload_plan', ['id' => $etage->getId()]),
             'method' => 'POST',
@@ -552,8 +608,13 @@ class AdminController extends AbstractController
     }
 
     #[Route('/etage/{id}/upload-plan', name: 'admin_etage_upload_plan', methods: ['POST'])]
-    public function etageUploadPlan(Request $request, Etage $etage): Response
+    public function etageUploadPlan(Request $request, int $id): Response
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            throw $this->createNotFoundException('Étage non trouvé');
+        }
         $form = $this->createForm(PlanType::class);
         $form->handleRequest($request);
 
@@ -595,8 +656,13 @@ class AdminController extends AbstractController
     }
 
     #[Route('/etage/{id}/positions/save', name: 'admin_etage_positions_save', methods: ['POST'])]
-    public function etagePositionsSave(Request $request, Etage $etage): JsonResponse
+    public function etagePositionsSave(Request $request, int $id): JsonResponse
     {
+        $etage = $this->entityManager->getRepository(Etage::class)->find($id);
+        
+        if (!$etage) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Étage non trouvé'], 404);
+        }
         $data = json_decode($request->getContent(), true);
         if ($data === null) {
             return new JsonResponse(['status' => 'error', 'message' => 'Invalid JSON'], 400);
